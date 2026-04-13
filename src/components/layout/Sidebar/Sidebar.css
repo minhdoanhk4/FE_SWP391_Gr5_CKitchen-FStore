@@ -42,6 +42,14 @@
   font-family: var(--font-heading);
 }
 
+.sidebar__logo-img {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .sidebar__brand-text {
   display: flex;
   flex-direction: column;
@@ -258,21 +266,20 @@
 /* ---- Floating collapse button ---- */
 .sidebar__collapse-btn {
   position: absolute;
-  top: 22px;
-  right: -14px;
+  top: 20px;
+  right: 12px;
   width: 28px;
   height: 28px;
-  background: var(--primary);
-  color: white;
-  border: 3px solid var(--surface);
-  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--sidebar-text);
+  border: none;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   z-index: 10;
   transition: all var(--transition-base);
-  box-shadow: var(--shadow-md);
   opacity: 0;
 }
 
@@ -281,8 +288,14 @@
 }
 
 .sidebar__collapse-btn:hover {
-  transform: scale(1.1);
-  background: var(--primary-light);
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--sidebar-text-active);
+}
+
+.sidebar--collapsed .sidebar__collapse-btn {
+  right: 50%;
+  transform: translateX(50%);
+  opacity: 1;
 }
 
 /* ---- Mobile Responsive ---- */

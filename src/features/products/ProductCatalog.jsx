@@ -70,10 +70,10 @@ export default function ProductCatalog() {
 
   const validate = () => {
     const errs = {};
-    if (!form.name.trim()) errs.name = "Vui long nhap ten san pham";
-    if (!form.category) errs.category = "Vui long chon danh muc";
-    if (!form.price) errs.price = "Vui long nhap gia ban";
-    if (!form.cost) errs.cost = "Vui long nhap gia von";
+    if (!form.name.trim()) errs.name = "Vui lòng nhập tên sản phẩm";
+    if (!form.category) errs.category = "Vui lòng chọn danh mục";
+    if (!form.price) errs.price = "Vui lòng nhập giá bán";
+    if (!form.cost) errs.cost = "Vui lòng nhập giá vốn";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -103,7 +103,7 @@ export default function ProductCatalog() {
   };
 
   const handleDelete = (id) => {
-    if (confirm("Ban co chac muon xoa san pham nay?")) {
+    if (confirm("Bạn có chắc muốn xóa sản phẩm này?")) {
       deleteProduct(id);
     }
   };

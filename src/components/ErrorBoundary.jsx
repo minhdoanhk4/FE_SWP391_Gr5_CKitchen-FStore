@@ -48,7 +48,7 @@ export default class ErrorBoundary extends Component {
               marginBottom: "8px",
             }}
           >
-            Da xay ra loi
+            Đã xảy ra lỗi
           </h2>
           <p
             style={{
@@ -58,8 +58,8 @@ export default class ErrorBoundary extends Component {
               maxWidth: "400px",
             }}
           >
-            Vui long tai lai trang hoac lien he quan tri vien neu loi tiep tuc
-            xay ra.
+            Vui lòng tải lại trang hoặc liên hệ quản trị viên nếu lỗi tiếp tục
+            xảy ra.
           </p>
           <button
             onClick={() => this.setState({ hasError: false, error: null })}
@@ -75,7 +75,7 @@ export default class ErrorBoundary extends Component {
               fontSize: "var(--text-sm)",
             }}
           >
-            Thu lai
+            Thử lại
           </button>
         </div>
       );

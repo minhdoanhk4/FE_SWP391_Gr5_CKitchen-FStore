@@ -20,13 +20,13 @@ export default function ManagerInventory() {
 
   const storeColumns = [
     {
-      header: "Cua hang",
+      header: "Cửa hàng",
       accessor: "storeName",
       sortable: true,
     },
-    { header: "San pham", accessor: "productName", sortable: true },
+    { header: "Sản phẩm", accessor: "productName", sortable: true },
     {
-      header: "Ton kho",
+      header: "Tồn kho",
       accessor: "quantity",
       sortable: true,
       render: (row) => {
@@ -44,12 +44,12 @@ export default function ManagerInventory() {
       },
     },
     {
-      header: "Muc toi thieu",
+      header: "Mức tối thiểu",
       accessor: "minStock",
       render: (r) => `${r.minStock} ${r.unit}`,
     },
     {
-      header: "Han su dung",
+      header: "Hạn sử dụng",
       accessor: "expiryDate",
       sortable: true,
       render: (row) => {
@@ -73,24 +73,24 @@ export default function ManagerInventory() {
       },
     },
     {
-      header: "Trang thai",
+      header: "Trạng thái",
       accessor: "status",
       render: (row) => {
         if (row.quantity === 0)
           return (
             <Badge variant="danger" dot>
-              Het hang
+              Hết hàng
             </Badge>
           );
         if (row.quantity <= row.minStock)
           return (
             <Badge variant="warning" dot>
-              Sap het
+              Sắp hết
             </Badge>
           );
         return (
           <Badge variant="success" dot>
-            Du hang
+            Đủ hàng
           </Badge>
         );
       },
@@ -98,7 +98,7 @@ export default function ManagerInventory() {
   ];
 
   const kitchenColumns = [
-    { header: "Nguyen lieu", accessor: "name", sortable: true },
+    { header: "Nguyên liệu", accessor: "name", sortable: true },
     {
       header: "Lo",
       accessor: "batchNo",
@@ -108,9 +108,9 @@ export default function ManagerInventory() {
         </span>
       ),
     },
-    { header: "Nha cung cap", accessor: "supplier" },
+    { header: "Nhà cung cấp", accessor: "supplier" },
     {
-      header: "Ton kho",
+      header: "Tồn kho",
       accessor: "quantity",
       sortable: true,
       render: (row) => {
@@ -128,12 +128,12 @@ export default function ManagerInventory() {
       },
     },
     {
-      header: "Toi thieu",
+      header: "Tối thiểu",
       accessor: "minStock",
       render: (r) => `${r.minStock} ${r.unit}`,
     },
     {
-      header: "Han SD",
+      header: "Hạn SD",
       accessor: "expiryDate",
       sortable: true,
       render: (row) => {
@@ -155,23 +155,23 @@ export default function ManagerInventory() {
       },
     },
     {
-      header: "Trang thai",
+      header: "Trạng thái",
       render: (row) => {
         if (row.quantity <= row.minStock)
           return (
             <Badge variant="danger" dot>
-              Can bo sung
+              Cần bổ sung
             </Badge>
           );
         if (isExpiringSoon(row.expiryDate))
           return (
             <Badge variant="warning" dot>
-              Sap het han
+              Sắp hết hạn
             </Badge>
           );
         return (
           <Badge variant="success" dot>
-            Binh thuong
+            Bình thường
           </Badge>
         );
       },
@@ -180,8 +180,8 @@ export default function ManagerInventory() {
 
   return (
     <PageWrapper
-      title="Ton kho he thong"
-      subtitle="Tong quan ton kho tat ca cua hang va kho nguyen lieu"
+      title="Tồn kho hệ thống"
+      subtitle="Tổng quan tồn kho tất cả cửa hàng và kho nguyên liệu"
     >
       <div style={{ marginBottom: "var(--space-6)" }}>
         <h3
@@ -193,12 +193,12 @@ export default function ManagerInventory() {
             color: "var(--text-primary)",
           }}
         >
-          Ton kho cua hang
+          Tồn kho cửa hàng
         </h3>
         <DataTable
           columns={storeColumns}
           data={enrichedStoreInv}
-          searchPlaceholder="Tim san pham, cua hang..."
+          searchPlaceholder="Tìm sản phẩm, cửa hàng..."
         />
       </div>
 
@@ -212,12 +212,12 @@ export default function ManagerInventory() {
             color: "var(--text-primary)",
           }}
         >
-          Kho nguyen lieu (Bep trung tam)
+          Kho nguyên liệu (Bếp trung tâm)
         </h3>
         <DataTable
           columns={kitchenColumns}
           data={kitchenInventory}
-          searchPlaceholder="Tim nguyen lieu..."
+          searchPlaceholder="Tìm nguyên liệu..."
         />
       </div>
     </PageWrapper>

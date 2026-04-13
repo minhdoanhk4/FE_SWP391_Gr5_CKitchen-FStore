@@ -16,12 +16,12 @@ import { useData } from "../../../contexts/DataContext";
 import "./OrderDetail.css";
 
 const TIMELINE_STEPS = [
-  { status: "pending", label: "Tao don", icon: FileText },
-  { status: "confirmed", label: "Xac nhan", icon: CheckCircle },
-  { status: "producing", label: "San xuat", icon: Clock },
-  { status: "ready", label: "San sang", icon: CheckCircle },
-  { status: "shipping", label: "Giao hang", icon: Truck },
-  { status: "delivered", label: "Hoan thanh", icon: CheckCircle },
+  { status: "pending", label: "Tạo đơn", icon: FileText },
+  { status: "confirmed", label: "Xác nhận", icon: CheckCircle },
+  { status: "producing", label: "Sản xuất", icon: Clock },
+  { status: "ready", label: "Sẵn sàng", icon: CheckCircle },
+  { status: "shipping", label: "Giao hàng", icon: Truck },
+  { status: "delivered", label: "Hoàn thành", icon: CheckCircle },
 ];
 
 const STATUS_ORDER = [
@@ -49,7 +49,7 @@ export default function OrderDetail() {
 
   if (!order) {
     return (
-      <PageWrapper title="Khong tim thay don hang">
+      <PageWrapper title="Không tìm thấy đơn hàng">
         <Card>
           <p
             style={{
@@ -58,7 +58,7 @@ export default function OrderDetail() {
               color: "var(--text-muted)",
             }}
           >
-            Don hang {id} khong ton tai.
+            Đơn hàng {id} không tồn tại.
           </p>
           <div style={{ textAlign: "center" }}>
             <Button
@@ -66,7 +66,7 @@ export default function OrderDetail() {
               icon={ArrowLeft}
               onClick={() => navigate(-1)}
             >
-              Quay lai
+              Quay lại
             </Button>
           </div>
         </Card>
@@ -78,21 +78,21 @@ export default function OrderDetail() {
 
   const handleConfirm = () => {
     updateOrder(order.id, { status: "confirmed" });
-    toast.success(`Da xac nhan don hang ${order.id}`);
+    toast.success(`Đã xác nhận đơn hàng ${order.id}`);
   };
 
   const handleCancel = () => {
     updateOrder(order.id, { status: "cancelled" });
-    toast.success(`Da huy don hang ${order.id}`);
+    toast.success(`Đã hủy đơn hàng ${order.id}`);
   };
 
   return (
     <PageWrapper
-      title={`Chi tiet don hang ${order.id}`}
-      subtitle={`Tao boi ${order.createdBy} — ${formatDateTime(order.createdAt)}`}
+      title={`Chi tiết đơn hàng ${order.id}`}
+      subtitle={`Tạo bởi ${order.createdBy} — ${formatDateTime(order.createdAt)}`}
       actions={
         <Button variant="ghost" icon={ArrowLeft} onClick={() => navigate(-1)}>
-          Quay lai
+          Quay lại
         </Button>
       }
     >
@@ -103,7 +103,7 @@ export default function OrderDetail() {
             {STATUS_LABELS[order.status]}
           </Badge>
           {order.priority === "high" && (
-            <Badge variant="danger">Uu tien cao</Badge>
+            <Badge variant="danger">Ưu tiên cao</Badge>
           )}
         </div>
         <div className="order-detail__timeline">
@@ -135,12 +135,12 @@ export default function OrderDetail() {
       <div className="order-detail__grid">
         {/* Order Info */}
         <Card>
-          <h3 className="order-detail__section-title">Thong tin don hang</h3>
+          <h3 className="order-detail__section-title">Thông tin đơn hàng</h3>
           <div className="order-detail__info-grid">
             <div className="order-detail__info-item">
               <FileText size={16} />
               <div>
-                <span className="order-detail__info-label">Ma don</span>
+                <span className="order-detail__info-label">Mã đơn</span>
                 <span className="order-detail__info-value font-mono">
                   {order.id}
                 </span>
@@ -149,7 +149,7 @@ export default function OrderDetail() {
             <div className="order-detail__info-item">
               <MapPin size={16} />
               <div>
-                <span className="order-detail__info-label">Cua hang</span>
+                <span className="order-detail__info-label">Cửa hàng</span>
                 <span className="order-detail__info-value">
                   {order.storeName}
                 </span>
@@ -159,7 +159,7 @@ export default function OrderDetail() {
               <Calendar size={16} />
               <div>
                 <span className="order-detail__info-label">
-                  Ngay yeu cau giao
+                  Ngày yêu cầu giao
                 </span>
                 <span className="order-detail__info-value">
                   {formatDate(order.requestedDate)}
@@ -169,7 +169,7 @@ export default function OrderDetail() {
             <div className="order-detail__info-item">
               <User size={16} />
               <div>
-                <span className="order-detail__info-label">Nguoi tao</span>
+                <span className="order-detail__info-label">Người tạo</span>
                 <span className="order-detail__info-value">
                   {order.createdBy}
                 </span>
@@ -178,7 +178,7 @@ export default function OrderDetail() {
           </div>
           {order.notes && (
             <div className="order-detail__notes">
-              <span className="order-detail__info-label">Ghi chu:</span>
+              <span className="order-detail__info-label">Ghi chú:</span>
               <p>{order.notes}</p>
             </div>
           )}
@@ -186,11 +186,11 @@ export default function OrderDetail() {
 
         {/* Items */}
         <Card>
-          <h3 className="order-detail__section-title">San pham dat hang</h3>
+          <h3 className="order-detail__section-title">Sản phẩm đặt hàng</h3>
           <div className="order-detail__items">
             <div className="order-detail__items-header">
-              <span>San pham</span>
-              <span>So luong</span>
+              <span>Sản phẩm</span>
+              <span>Số lượng</span>
             </div>
             {order.items.map((item, i) => (
               <div key={i} className="order-detail__item-row">
@@ -206,7 +206,7 @@ export default function OrderDetail() {
               </div>
             ))}
             <div className="order-detail__items-total">
-              <span>Tong cong</span>
+              <span>Tổng cộng</span>
               <span className="font-mono">{formatCurrency(order.total)}</span>
             </div>
           </div>
@@ -217,10 +217,10 @@ export default function OrderDetail() {
       {order.status === "pending" && (
         <div style={{ display: "flex", gap: "12px", marginTop: "20px" }}>
           <Button variant="primary" icon={CheckCircle} onClick={handleConfirm}>
-            Xac nhan don
+            Xác nhận đơn
           </Button>
           <Button variant="danger" onClick={handleCancel}>
-            Huy don
+            Hủy đơn
           </Button>
         </div>
       )}

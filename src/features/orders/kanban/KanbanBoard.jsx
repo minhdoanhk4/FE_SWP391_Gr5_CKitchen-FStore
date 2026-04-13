@@ -14,19 +14,19 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { MapPin, Calendar, User, FileText, ChevronRight } from "lucide-react";
+import { MapPin, Calendar, User, FileText, ChevronRight, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../../components/layout/PageWrapper/PageWrapper";
-import { Badge, Drawer } from "../../../components/ui";
+import { Badge, Drawer, Modal, Button } from "../../../components/ui";
 import { useData } from "../../../contexts/DataContext";
 import "./KanbanBoard.css";
 
 const COLUMNS = [
-  { id: "pending", label: "Cho xu ly" },
-  { id: "confirmed", label: "Da xac nhan" },
-  { id: "producing", label: "Dang san xuat" },
-  { id: "ready", label: "San sang giao" },
-  { id: "shipping", label: "Dang giao" },
+  { id: "pending", label: "Chờ xử lý" },
+  { id: "confirmed", label: "Đã xác nhận" },
+  { id: "producing", label: "Đang sản xuất" },
+  { id: "ready", label: "Sẵn sàng giao" },
+  { id: "shipping", label: "Đang giao" },
 ];
 
 const STATUS_ORDER = ["pending", "confirmed", "producing", "ready", "shipping"];
@@ -49,10 +49,10 @@ function OrderCard({ order, isDragging, onClick, formatCurrency, formatDate }) {
           className={`order-card__priority order-card__priority--${order.priority}`}
         >
           {order.priority === "high"
-            ? "Gap"
+            ? "Gấp"
             : order.priority === "normal"
-              ? "Binh thuong"
-              : "Thap"}
+              ? "Bình thường"
+              : "Thấp"}
         </span>
       </div>
       <div className="order-card__store">{order.storeName}</div>
@@ -68,7 +68,7 @@ function OrderCard({ order, isDragging, onClick, formatCurrency, formatDate }) {
         <span className="order-card__total">{formatCurrency(order.total)}</span>
       </div>
       <div className="order-card__view-hint">
-        Xem chi tiet <ChevronRight size={12} />
+        Xem chi tiết <ChevronRight size={12} />
       </div>
     </div>
   );
@@ -105,7 +105,7 @@ function OrderDetailDrawer({ order, isOpen, onClose, STATUS_LABELS, STATUS_COLOR
     <Drawer
       isOpen={isOpen}
       onClose={onClose}
-      title={`Chi tiet don hang ${order.id}`}
+      title={`Chi tiết đơn hàng ${order.id}`}
     >
       <div className="order-drawer">
         <div className="order-drawer__status">
@@ -113,7 +113,7 @@ function OrderDetailDrawer({ order, isOpen, onClose, STATUS_LABELS, STATUS_COLOR
             {STATUS_LABELS[order.status]}
           </Badge>
           {order.priority === "high" && (
-            <Badge variant="danger">Uu tien cao</Badge>
+            <Badge variant="danger">Ưu tiên cao</Badge>
           )}
         </div>
 
@@ -137,12 +137,12 @@ function OrderDetailDrawer({ order, isOpen, onClose, STATUS_LABELS, STATUS_COLOR
         </div>
 
         <div className="order-drawer__section">
-          <h4 className="order-drawer__section-title">Thong tin don hang</h4>
+          <h4 className="order-drawer__section-title">Thông tin đơn hàng</h4>
           <div className="order-drawer__info-grid">
             <div className="order-drawer__info-item">
               <FileText size={14} />
               <div>
-                <span className="order-drawer__info-label">Ma don</span>
+                <span className="order-drawer__info-label">Mã đơn</span>
                 <span className="order-drawer__info-value font-mono">
                   {order.id}
                 </span>
@@ -151,7 +151,7 @@ function OrderDetailDrawer({ order, isOpen, onClose, STATUS_LABELS, STATUS_COLOR
             <div className="order-drawer__info-item">
               <MapPin size={14} />
               <div>
-                <span className="order-drawer__info-label">Cua hang</span>
+                <span className="order-drawer__info-label">Cửa hàng</span>
                 <span className="order-drawer__info-value">
                   {order.storeName}
                 </span>
@@ -161,7 +161,7 @@ function OrderDetailDrawer({ order, isOpen, onClose, STATUS_LABELS, STATUS_COLOR
               <Calendar size={14} />
               <div>
                 <span className="order-drawer__info-label">
-                  Ngay yeu cau giao
+                  Ngày yêu cầu giao
                 </span>
                 <span className="order-drawer__info-value">
                   {formatDate(order.requestedDate)}
@@ -171,7 +171,7 @@ function OrderDetailDrawer({ order, isOpen, onClose, STATUS_LABELS, STATUS_COLOR
             <div className="order-drawer__info-item">
               <User size={14} />
               <div>
-                <span className="order-drawer__info-label">Nguoi tao</span>
+                <span className="order-drawer__info-label">Người tạo</span>
                 <span className="order-drawer__info-value">
                   {order.createdBy}
                 </span>
@@ -181,7 +181,7 @@ function OrderDetailDrawer({ order, isOpen, onClose, STATUS_LABELS, STATUS_COLOR
         </div>
 
         <div className="order-drawer__section">
-          <h4 className="order-drawer__section-title">San pham dat hang</h4>
+          <h4 className="order-drawer__section-title">Sản phẩm đặt hàng</h4>
           <div className="order-drawer__items">
             {order.items.map((item, i) => (
               <div key={i} className="order-drawer__item-row">
@@ -192,7 +192,7 @@ function OrderDetailDrawer({ order, isOpen, onClose, STATUS_LABELS, STATUS_COLOR
               </div>
             ))}
             <div className="order-drawer__item-total">
-              <span>Tong cong</span>
+              <span>Tổng cộng</span>
               <span className="font-mono">{formatCurrency(order.total)}</span>
             </div>
           </div>
@@ -200,13 +200,13 @@ function OrderDetailDrawer({ order, isOpen, onClose, STATUS_LABELS, STATUS_COLOR
 
         {order.notes && (
           <div className="order-drawer__section">
-            <h4 className="order-drawer__section-title">Ghi chu</h4>
+            <h4 className="order-drawer__section-title">Ghi chú</h4>
             <p className="order-drawer__notes">{order.notes}</p>
           </div>
         )}
 
         <div className="order-drawer__meta">
-          Tao boi {order.createdBy} — {formatDateTime(order.createdAt)}
+          Tạo bởi {order.createdBy} — {formatDateTime(order.createdAt)}
         </div>
       </div>
     </Drawer>
@@ -214,7 +214,7 @@ function OrderDetailDrawer({ order, isOpen, onClose, STATUS_LABELS, STATUS_COLOR
 }
 
 export default function KanbanBoard({
-  title = "Bang quan ly don hang",
+  title = "Bảng quản lý đơn hàng",
   subtitle,
 }) {
   const { orders, updateOrder, STATUS_LABELS, STATUS_COLORS, formatCurrency, formatDate, formatDateTime } = useData();
@@ -226,6 +226,7 @@ export default function KanbanBoard({
   const [activeId, setActiveId] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [dragged, setDragged] = useState(false);
+  const [pendingChange, setPendingChange] = useState(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -269,37 +270,31 @@ export default function KanbanBoard({
     }
 
     if (targetStatus && activeOrder.status !== targetStatus) {
-      const fromLabel = STATUS_LABELS[activeOrder.status];
-      const toLabel = STATUS_LABELS[targetStatus];
-
-      updateOrder(active.id, { status: targetStatus });
-
-      toast.success(`${activeOrder.id}: ${fromLabel} -> ${toLabel}`, {
-        duration: 3000,
+      setPendingChange({
+        orderId: active.id,
+        orderLabel: activeOrder.id,
+        storeName: activeOrder.storeName,
+        fromStatus: activeOrder.status,
+        toStatus: targetStatus,
       });
     }
   };
 
-  const handleDragOver = (event) => {
-    const { active, over } = event;
-    if (!over) return;
+  const handleDragOver = () => {};
 
-    const activeOrder = findOrderById(active.id);
-    if (!activeOrder) return;
+  const handleConfirmChange = () => {
+    if (!pendingChange) return;
+    const { orderId, orderLabel, fromStatus, toStatus } = pendingChange;
+    const fromLabel = STATUS_LABELS[fromStatus];
+    const toLabel = STATUS_LABELS[toStatus];
 
-    const overColumn = COLUMNS.find((col) => col.id === over.id);
-    const overOrder = findOrderById(over.id);
+    updateOrder(orderId, { status: toStatus });
+    toast.success(`${orderLabel}: ${fromLabel} ➜ ${toLabel}`, { duration: 3000 });
+    setPendingChange(null);
+  };
 
-    let targetStatus;
-    if (overColumn) {
-      targetStatus = overColumn.id;
-    } else if (overOrder) {
-      targetStatus = overOrder.status;
-    }
-
-    if (targetStatus && activeOrder.status !== targetStatus) {
-      updateOrder(active.id, { status: targetStatus });
-    }
+  const handleCancelChange = () => {
+    setPendingChange(null);
   };
 
   const activeOrder = activeId ? findOrderById(activeId) : null;
@@ -370,6 +365,38 @@ export default function KanbanBoard({
         formatDate={formatDate}
         formatDateTime={formatDateTime}
       />
+
+      <Modal
+        isOpen={!!pendingChange}
+        onClose={handleCancelChange}
+        title="Xác nhận chuyển trạng thái"
+        footer={
+          <div className="kanban-confirm__actions">
+            <Button variant="ghost" onClick={handleCancelChange}>Hủy</Button>
+            <Button variant="primary" onClick={handleConfirmChange}>Xác nhận</Button>
+          </div>
+        }
+      >
+        {pendingChange && (
+          <div className="kanban-confirm">
+            <div className="kanban-confirm__icon">
+              <AlertTriangle size={32} />
+            </div>
+            <p className="kanban-confirm__message">
+              Bạn có chắc chắn muốn chuyển đơn hàng <strong>{pendingChange.orderLabel}</strong> ({pendingChange.storeName})
+            </p>
+            <div className="kanban-confirm__status-flow">
+              <Badge variant={STATUS_COLORS[pendingChange.fromStatus]} dot>
+                {STATUS_LABELS[pendingChange.fromStatus]}
+              </Badge>
+              <ChevronRight size={20} className="kanban-confirm__arrow" />
+              <Badge variant={STATUS_COLORS[pendingChange.toStatus]} dot>
+                {STATUS_LABELS[pendingChange.toStatus]}
+              </Badge>
+            </div>
+          </div>
+        )}
+      </Modal>
     </PageWrapper>
   );
 }

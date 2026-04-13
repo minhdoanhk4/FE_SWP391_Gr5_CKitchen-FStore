@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, ChefHat, Truck, BarChart3, Shield, ChevronRight } from 'lucide-react';
 import { useAuth, ROLES, ROLE_INFO } from '../../contexts/AuthContext';
+import Logo from '../../components/ui/Logo/Logo';
 import './LoginPage.css';
 
 const ROLE_ICONS = {
@@ -24,7 +25,7 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-card__brand">
-          <div className="login-card__logo">CK</div>
+          <Logo size={48} className="login-card__logo-img" />
           <h1 className="login-card__brand-name">CKitchen</h1>
         </div>
         <p className="login-card__subtitle">

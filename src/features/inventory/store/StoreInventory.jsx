@@ -16,9 +16,9 @@ export default function StoreInventory() {
     : storeInventory.filter((i) => i.storeId === user.store);
 
   const columns = [
-    { header: "San pham", accessor: "productName", sortable: true },
+    { header: "Sản phẩm", accessor: "productName", sortable: true },
     {
-      header: "Ma SP",
+      header: "Mã SP",
       accessor: "productId",
       width: "80px",
       render: (r) => (
@@ -28,7 +28,7 @@ export default function StoreInventory() {
       ),
     },
     {
-      header: "Ton kho",
+      header: "Tồn kho",
       accessor: "quantity",
       sortable: true,
       render: (row) => {
@@ -50,12 +50,12 @@ export default function StoreInventory() {
       },
     },
     {
-      header: "Muc toi thieu",
+      header: "Mức tối thiểu",
       accessor: "minStock",
       render: (r) => `${r.minStock} ${r.unit}`,
     },
     {
-      header: "Han su dung",
+      header: "Hạn sử dụng",
       accessor: "expiryDate",
       sortable: true,
       render: (row) => {
@@ -79,24 +79,24 @@ export default function StoreInventory() {
       },
     },
     {
-      header: "Trang thai",
+      header: "Trạng thái",
       accessor: "status",
       render: (row) => {
         if (row.quantity === 0)
           return (
             <Badge variant="danger" dot>
-              Het hang
+              Hết hàng
             </Badge>
           );
         if (row.quantity <= row.minStock)
           return (
             <Badge variant="warning" dot>
-              Sap het
+              Sắp hết
             </Badge>
           );
         return (
           <Badge variant="success" dot>
-            Du hang
+            Đủ hàng
           </Badge>
         );
       },
@@ -105,14 +105,14 @@ export default function StoreInventory() {
 
   return (
     <PageWrapper
-      title="Ton kho cua hang"
-      subtitle="Theo doi so luong ton kho va han su dung tai cua hang"
+      title="Tồn kho cửa hàng"
+      subtitle="Theo dõi số lượng tồn kho và hạn sử dụng tại cửa hàng"
     >
       <DataTable
         columns={columns}
         data={data}
-        searchPlaceholder="Tim san pham..."
-        emptyTitle="Chua co du lieu ton kho"
+        searchPlaceholder="Tìm sản phẩm..."
+        emptyTitle="Chưa có dữ liệu tồn kho"
       />
     </PageWrapper>
   );

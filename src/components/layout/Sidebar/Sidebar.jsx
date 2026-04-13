@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useAuth, ROLES, ROLE_INFO } from "../../../contexts/AuthContext";
 import { useTheme } from "../../../contexts/ThemeContext";
+import Logo from "../../ui/Logo/Logo";
 import "./Sidebar.css";
 
 const NAV_CONFIG = {
@@ -149,7 +150,7 @@ export default function Sidebar() {
 
       {/* Brand */}
       <div className="sidebar__brand">
-        <div className="sidebar__logo">CK</div>
+        <Logo size={32} className="sidebar__logo-img" />
         <div className="sidebar__brand-text">
           <span className="sidebar__brand-name">CKitchen</span>
           <span className="sidebar__brand-sub">Franchise Manager</span>

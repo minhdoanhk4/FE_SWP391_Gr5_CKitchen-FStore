@@ -78,10 +78,10 @@ export default function ProductionPlan() {
 
   const validate = () => {
     const errs = {};
-    if (!form.productId) errs.productId = "Vui long chon san pham";
-    if (!form.quantity) errs.quantity = "Vui long nhap so luong";
-    if (!form.staff.trim()) errs.staff = "Vui long nhap nhan vien phu trach";
-    if (!form.startDate) errs.startDate = "Vui long chon thoi gian bat dau";
+    if (!form.productId) errs.productId = "Vui lòng chọn sản phẩm";
+    if (!form.quantity) errs.quantity = "Vui lòng nhập số lượng";
+    if (!form.staff.trim()) errs.staff = "Vui lòng nhập nhân viên phụ trách";
+    if (!form.startDate) errs.startDate = "Vui lòng chọn thời gian bắt đầu";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -103,9 +103,9 @@ export default function ProductionPlan() {
       const newPlan = {
         id: `KH-${String(plans.length + 1).padStart(3, "0")}`,
         productId: form.productId,
-        productName: product?.name || "San pham",
+        productName: product?.name || "Sản phẩm",
         quantity: parseInt(form.quantity) || 0,
-        unit: product?.unit || "phan",
+        unit: product?.unit || "phần",
         status: "planned",
         startDate: form.startDate,
         endDate: null,
@@ -119,7 +119,7 @@ export default function ProductionPlan() {
   };
 
   const handleDelete = (id) => {
-    if (confirm("Ban co chac muon xoa ke hoach nay?")) {
+    if (confirm("Bạn có chắc muốn xóa kế hoạch này?")) {
       deleteProductionPlan(id);
       if (selectedPlan?.id === id) setSelectedPlan(null);
     }

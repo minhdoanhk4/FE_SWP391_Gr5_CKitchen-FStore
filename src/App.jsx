@@ -108,8 +108,8 @@ function AppRoutes() {
             path="/kitchen/orders"
             element={
               <KanbanBoard
-                title="Don hang can xu ly"
-                subtitle="Keo tha de cap nhat trang thai don hang"
+                title="Đơn hàng cần xử lý"
+                subtitle="Kéo thả để cập nhật trạng thái đơn hàng"
               />
             }
           />
@@ -127,8 +127,8 @@ function AppRoutes() {
             path="/supply/orders"
             element={
               <KanbanBoard
-                title="Tong hop don hang"
-                subtitle="Phan loai va dieu phoi don hang tu cac cua hang"
+                title="Tổng hợp đơn hàng"
+                subtitle="Phân loại và điều phối đơn hàng từ các cửa hàng"
               />
             }
           />
@@ -146,8 +146,8 @@ function AppRoutes() {
             path="/manager/performance"
             element={
               <Reports
-                title="Hieu suat van hanh"
-                subtitle="Phan tich hieu suat san xuat, phan phoi va ban hang"
+                title="Hiệu suất vận hành"
+                subtitle="Phân tích hiệu suất sản xuất, phân phối và bán hàng"
               />
             }
           />
@@ -163,8 +163,8 @@ function AppRoutes() {
             path="/admin/reports"
             element={
               <Reports
-                title="Bao cao he thong"
-                subtitle="So lieu tong hop toan he thong"
+                title="Báo cáo hệ thống"
+                subtitle="Số liệu tổng hợp toàn hệ thống"
               />
             }
           />

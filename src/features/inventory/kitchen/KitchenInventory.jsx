@@ -6,7 +6,7 @@ export default function KitchenInventory() {
   const { kitchenInventory, formatDate, isExpiringSoon, isExpired } = useData();
 
   const columns = [
-    { header: "Nguyen lieu", accessor: "name", sortable: true },
+    { header: "Nguyên liệu", accessor: "name", sortable: true },
     {
       header: "Lo",
       accessor: "batchNo",
@@ -16,9 +16,9 @@ export default function KitchenInventory() {
         </span>
       ),
     },
-    { header: "Nha cung cap", accessor: "supplier" },
+    { header: "Nhà cung cấp", accessor: "supplier" },
     {
-      header: "Ton kho",
+      header: "Tồn kho",
       accessor: "quantity",
       sortable: true,
       render: (row) => {
@@ -36,12 +36,12 @@ export default function KitchenInventory() {
       },
     },
     {
-      header: "Toi thieu",
+      header: "Tối thiểu",
       accessor: "minStock",
       render: (r) => `${r.minStock} ${r.unit}`,
     },
     {
-      header: "Han SD",
+      header: "Hạn SD",
       accessor: "expiryDate",
       sortable: true,
       render: (row) => {
@@ -63,23 +63,23 @@ export default function KitchenInventory() {
       },
     },
     {
-      header: "Trang thai",
+      header: "Trạng thái",
       render: (row) => {
         if (row.quantity <= row.minStock)
           return (
             <Badge variant="danger" dot>
-              Can bo sung
+              Cần bổ sung
             </Badge>
           );
         if (isExpiringSoon(row.expiryDate))
           return (
             <Badge variant="warning" dot>
-              Sap het han
+              Sắp hết hạn
             </Badge>
           );
         return (
           <Badge variant="success" dot>
-            Binh thuong
+            Bình thường
           </Badge>
         );
       },
@@ -88,13 +88,13 @@ export default function KitchenInventory() {
 
   return (
     <PageWrapper
-      title="Kho nguyen lieu"
-      subtitle="Quan ly nguyen lieu dau vao, han su dung va lo hang"
+      title="Kho nguyên liệu"
+      subtitle="Quản lý nguyên liệu đầu vào, hạn sử dụng và lô hàng"
     >
       <DataTable
         columns={columns}
         data={kitchenInventory}
-        searchPlaceholder="Tim nguyen lieu..."
+        searchPlaceholder="Tìm nguyên liệu..."
       />
     </PageWrapper>
   );

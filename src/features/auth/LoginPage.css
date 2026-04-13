@@ -67,6 +67,13 @@
   box-shadow: 0 4px 12px rgba(45, 106, 79, 0.3);
 }
 
+.login-card__logo-img {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  object-fit: contain;
+}
+
 .login-card__brand-name {
   font-family: var(--font-heading);
   font-size: var(--text-2xl);

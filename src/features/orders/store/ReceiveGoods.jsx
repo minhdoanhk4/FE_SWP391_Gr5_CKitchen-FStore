@@ -29,13 +29,13 @@ export default function ReceiveGoods() {
   const handleConfirm = (orderId) => {
     updateOrder(orderId, { status: "delivered" });
     setConfirmedOrders((prev) => [...prev, orderId]);
-    toast.success(`Da xac nhan nhan hang cho don ${orderId}!`);
+    toast.success(`Đã xác nhận nhận hàng cho đơn ${orderId}!`);
   };
 
   return (
     <PageWrapper
-      title="Nhan hang"
-      subtitle="Xac nhan nhan hang va phan hoi chat luong"
+      title="Nhận hàng"
+      subtitle="Xác nhận nhận hàng và phản hồi chất lượng"
     >
       <div
         style={{
@@ -53,7 +53,7 @@ export default function ReceiveGoods() {
                 color: "var(--text-muted)",
               }}
             >
-              Hien tai khong co don hang nao can nhan.
+              Hiện tại không có đơn hàng nào cần nhận.
             </p>
           </Card>
         )}
@@ -91,7 +91,7 @@ export default function ReceiveGoods() {
                   </Badge>
                 </div>
                 <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-                  Ngay yeu cau: {formatDate(order.requestedDate)}
+                  Ngày yêu cầu: {formatDate(order.requestedDate)}
                 </p>
               </div>
               <span
@@ -146,7 +146,7 @@ export default function ReceiveGoods() {
                   >
                     <Star size={16} color="var(--accent-warm)" />
                     <span style={{ fontSize: "13px", fontWeight: 500 }}>
-                      Danh gia chat luong:
+                      Đánh giá chất lượng:
                     </span>
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button
@@ -177,7 +177,7 @@ export default function ReceiveGoods() {
                     ))}
                   </div>
                   <Textarea
-                    placeholder="Nhan xet ve chat luong hang hoa..."
+                    placeholder="Nhận xét về chất lượng hàng hóa..."
                     value={feedback[order.id]?.comment || ""}
                     onChange={(e) =>
                       setFeedback((prev) => ({
@@ -193,7 +193,7 @@ export default function ReceiveGoods() {
                     icon={CheckCircle}
                     onClick={() => handleConfirm(order.id)}
                   >
-                    Xac nhan nhan hang
+                    Xác nhận nhận hàng
                   </Button>
                 </div>
               )}
@@ -209,7 +209,7 @@ export default function ReceiveGoods() {
                 }}
               >
                 <Badge variant="success" dot>
-                  Da xac nhan nhan hang
+                  Đã xác nhận nhận hàng
                 </Badge>
                 {feedback[order.id]?.rating && (
                   <span style={{ display: "flex", gap: "2px" }}>

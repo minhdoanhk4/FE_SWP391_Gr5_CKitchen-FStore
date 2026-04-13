@@ -3,9 +3,9 @@ import { DataTable, Badge } from "../../components/ui";
 import { useData } from "../../contexts/DataContext";
 
 const BATCH_STATUS = {
-  planned: { label: "Da len ke hoach", variant: "info" },
-  in_progress: { label: "Dang san xuat", variant: "accent" },
-  completed: { label: "Hoan thanh", variant: "success" },
+  planned: { label: "Đã lên kế hoạch", variant: "info" },
+  in_progress: { label: "Đang sản xuất", variant: "accent" },
+  completed: { label: "Hoàn thành", variant: "success" },
 };
 
 export default function BatchManagement() {
@@ -13,7 +13,7 @@ export default function BatchManagement() {
 
   const columns = [
     {
-      header: "Ma lo",
+      header: "Mã lô",
       accessor: "id",
       render: (r) => (
         <span
@@ -24,14 +24,14 @@ export default function BatchManagement() {
         </span>
       ),
     },
-    { header: "San pham", accessor: "productName", sortable: true },
+    { header: "Sản phẩm", accessor: "productName", sortable: true },
     {
-      header: "So luong",
+      header: "Số lượng",
       accessor: "quantity",
       render: (r) => `${r.quantity} ${r.unit}`,
     },
     {
-      header: "Trang thai",
+      header: "Trạng thái",
       accessor: "status",
       render: (r) => {
         const s = BATCH_STATUS[r.status];
@@ -43,27 +43,27 @@ export default function BatchManagement() {
       },
     },
     {
-      header: "Bat dau",
+      header: "Bắt đầu",
       accessor: "startDate",
       render: (r) => formatDateTime(r.startDate),
     },
     {
-      header: "Ket thuc",
+      header: "Kết thúc",
       accessor: "endDate",
       render: (r) => (r.endDate ? formatDateTime(r.endDate) : "—"),
     },
-    { header: "Phu trach", accessor: "staff" },
+    { header: "Phụ trách", accessor: "staff" },
   ];
 
   return (
     <PageWrapper
-      title="Quan ly lo san xuat"
-      subtitle="Theo doi tien do cac lo san xuat"
+      title="Quản lý lô sản xuất"
+      subtitle="Theo dõi tiến độ các lô sản xuất"
     >
       <DataTable
         columns={columns}
         data={batches}
-        searchPlaceholder="Tim theo ma lo, san pham..."
+        searchPlaceholder="Tìm theo mã lô, sản phẩm..."
       />
     </PageWrapper>
   );

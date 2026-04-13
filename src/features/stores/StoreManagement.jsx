@@ -58,8 +58,8 @@ export default function StoreManagement() {
 
   const validate = () => {
     const errs = {};
-    if (!form.name.trim()) errs.name = "Vui long nhap ten cua hang";
-    if (!form.address.trim()) errs.address = "Vui long nhap dia chi";
+    if (!form.name.trim()) errs.name = "Vui lòng nhập tên cửa hàng";
+    if (!form.address.trim()) errs.address = "Vui lòng nhập địa chỉ";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -79,7 +79,7 @@ export default function StoreManagement() {
   };
 
   const handleDelete = (id) => {
-    if (confirm("Ban co chac muon xoa cua hang nay?")) {
+    if (confirm("Bạn có chắc muốn xóa cửa hàng này?")) {
       deleteStore(id);
     }
   };

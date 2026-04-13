@@ -69,8 +69,8 @@ export default function NewOrder() {
 
   const validate = () => {
     const errs = {};
-    if (cart.length === 0) errs.cart = "Vui long chon it nhat 1 san pham";
-    if (!requestedDate) errs.requestedDate = "Vui long chon ngay giao";
+    if (cart.length === 0) errs.cart = "Vui lòng chọn ít nhất 1 sản phẩm";
+    if (!requestedDate) errs.requestedDate = "Vui lòng chọn ngày giao";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -99,22 +99,22 @@ export default function NewOrder() {
     };
     addOrder(newOrder);
     toast.success(
-      `Don hang da duoc tao thanh cong! Tong: ${formatCurrency(total)}`,
+      `Đơn hàng đã được tạo thành công! Tổng: ${formatCurrency(total)}`,
     );
     navigate("/store/orders");
   };
 
   return (
     <PageWrapper
-      title="Tao don hang moi"
-      subtitle="Chon san pham va so luong can dat tu bep trung tam"
+      title="Tạo đơn hàng mới"
+      subtitle="Chọn sản phẩm và số lượng cần đặt từ bếp trung tâm"
       actions={
         <Button
           variant="ghost"
           icon={ArrowLeft}
           onClick={() => navigate("/store/orders")}
         >
-          Quay lai
+          Quay lại
         </Button>
       }
     >
@@ -156,7 +156,7 @@ export default function NewOrder() {
                   textTransform: "capitalize",
                 }}
               >
-                {cat === "all" ? "Tat ca" : cat}
+                {cat === "all" ? "Tất cả" : cat}
               </button>
             ))}
           </div>
@@ -221,7 +221,7 @@ export default function NewOrder() {
                 marginBottom: "16px",
               }}
             >
-              Gio hang ({cart.length})
+              Giỏ hàng ({cart.length})
             </h3>
 
             {cart.length === 0 ? (
@@ -233,7 +233,7 @@ export default function NewOrder() {
                   padding: "32px 0",
                 }}
               >
-                Chon san pham ben trai de them vao gio
+                Chọn sản phẩm bên trái để thêm vào giỏ
               </p>
             ) : (
               <div className="cart-items">
@@ -282,7 +282,7 @@ export default function NewOrder() {
               }}
             >
               <Input
-                label="Ngay yeu cau giao"
+                label="Ngày yêu cầu giao"
                 type="date"
                 value={requestedDate}
                 onChange={(e) => {
@@ -294,8 +294,8 @@ export default function NewOrder() {
                 error={errors.requestedDate}
               />
               <Textarea
-                label="Ghi chu"
-                placeholder="Ghi chu cho bep trung tam..."
+                label="Ghi chú"
+                placeholder="Ghi chú cho bếp trung tâm..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 style={{ marginTop: "12px" }}
@@ -318,7 +318,7 @@ export default function NewOrder() {
                   fontSize: "16px",
                 }}
               >
-                <span>Tong cong:</span>
+                <span>Tổng cộng:</span>
                 <span
                   style={{
                     color: "var(--primary)",
@@ -333,7 +333,7 @@ export default function NewOrder() {
                 disabled={cart.length === 0}
                 onClick={handleSubmit}
               >
-                Gui don hang
+                Gửi đơn hàng
               </Button>
             </div>
           </Card>

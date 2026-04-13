@@ -82,25 +82,25 @@ export default function Header() {
 
     orders.forEach(o => {
       if (o.id.toLowerCase().includes(q) || (o.storeName || '').toLowerCase().includes(q)) {
-        results.push({ type: 'Don hang', label: `${o.id} — ${o.storeName || ''}`, path: `${rolePrefix}/orders` });
+        results.push({ type: 'Đơn hàng', label: `${o.id} — ${o.storeName || ''}`, path: `${rolePrefix}/orders` });
       }
     });
 
     products.forEach(p => {
       if (p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)) {
-        results.push({ type: 'San pham', label: `${p.id} — ${p.name}`, path: rolePrefix === '/manager' ? '/manager/products' : `${rolePrefix}/inventory` });
+        results.push({ type: 'Sản phẩm', label: `${p.id} — ${p.name}`, path: rolePrefix === '/manager' ? '/manager/products' : `${rolePrefix}/inventory` });
       }
     });
 
     users.forEach(u => {
       if (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) {
-        results.push({ type: 'Nguoi dung', label: `${u.name} — ${u.email}`, path: '/admin/users' });
+        results.push({ type: 'Người dùng', label: `${u.name} — ${u.email}`, path: '/admin/users' });
       }
     });
 
     stores.forEach(s => {
       if (s.name.toLowerCase().includes(q) || (s.address || '').toLowerCase().includes(q)) {
-        results.push({ type: 'Cua hang', label: s.name, path: '/admin/stores' });
+        results.push({ type: 'Cửa hàng', label: s.name, path: '/admin/stores' });
       }
     });
 

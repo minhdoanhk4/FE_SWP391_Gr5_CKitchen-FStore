@@ -26,7 +26,7 @@ export default function StoreOrders() {
 
   const columns = [
     {
-      header: "Ma don",
+      header: "Mã đơn",
       accessor: "id",
       sortable: true,
       width: "100px",
@@ -40,7 +40,7 @@ export default function StoreOrders() {
       ),
     },
     {
-      header: "San pham",
+      header: "Sản phẩm",
       accessor: "items",
       render: (row) => (
         <div>
@@ -52,9 +52,9 @@ export default function StoreOrders() {
         </div>
       ),
     },
-    { header: "Ngay yeu cau", accessor: "requestedDate", sortable: true },
+    { header: "Ngày yêu cầu", accessor: "requestedDate", sortable: true },
     {
-      header: "Tong tien",
+      header: "Tổng tiền",
       accessor: "total",
       sortable: true,
       render: (row) => (
@@ -62,7 +62,7 @@ export default function StoreOrders() {
       ),
     },
     {
-      header: "Trang thai",
+      header: "Trạng thái",
       accessor: "status",
       sortable: true,
       render: (row) => (
@@ -72,7 +72,7 @@ export default function StoreOrders() {
       ),
     },
     {
-      header: "Tao luc",
+      header: "Tạo lúc",
       accessor: "createdAt",
       render: (row) => formatDateTime(row.createdAt),
     },
@@ -90,28 +90,28 @@ export default function StoreOrders() {
             e.stopPropagation();
             navigate(`/store/orders/${row.id}`);
           }}
-          title="Xem chi tiet"
+          title="Xem chi tiết"
         />
       ),
     },
   ];
 
   const statusTabs = [
-    { value: "all", label: "Tat ca" },
-    { value: "pending", label: "Cho xu ly" },
-    { value: "confirmed", label: "Da xac nhan" },
-    { value: "producing", label: "Dang SX" },
-    { value: "shipping", label: "Dang giao" },
-    { value: "delivered", label: "Da giao" },
+    { value: "all", label: "Tất cả" },
+    { value: "pending", label: "Chờ xử lý" },
+    { value: "confirmed", label: "Đã xác nhận" },
+    { value: "producing", label: "Đang SX" },
+    { value: "shipping", label: "Đang giao" },
+    { value: "delivered", label: "Đã giao" },
   ];
 
   return (
     <PageWrapper
-      title="Don dat hang"
-      subtitle="Quan ly don dat hang nguyen lieu tu bep trung tam"
+      title="Đơn đặt hàng"
+      subtitle="Quản lý đơn đặt hàng nguyên liệu từ bếp trung tâm"
       actions={
         <Button icon={Plus} onClick={() => navigate("/store/orders/new")}>
-          Tao don moi
+          Tạo đơn mới
         </Button>
       }
     >
@@ -158,9 +158,9 @@ export default function StoreOrders() {
       <DataTable
         columns={columns}
         data={filtered}
-        searchPlaceholder="Tim theo ma don, san pham..."
-        emptyTitle="Chua co don hang"
-        emptyDesc="Bam 'Tao don moi' de bat dau dat hang tu bep trung tam."
+        searchPlaceholder="Tìm theo mã đơn, sản phẩm..."
+        emptyTitle="Chưa có đơn hàng"
+        emptyDesc="Bấm 'Tạo đơn mới' để bắt đầu đặt hàng từ bếp trung tâm."
       />
     </PageWrapper>
   );

@@ -53,9 +53,9 @@ export default function UserManagement() {
 
   const validate = () => {
     const errs = {};
-    if (!form.name.trim()) errs.name = "Vui long nhap ho va ten";
-    if (!form.email.trim()) errs.email = "Vui long nhap email";
-    if (!form.role) errs.role = "Vui long chon vai tro";
+    if (!form.name.trim()) errs.name = "Vui lòng nhập họ và tên";
+    if (!form.email.trim()) errs.email = "Vui lòng nhập email";
+    if (!form.role) errs.role = "Vui lòng chọn vai trò";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -75,7 +75,7 @@ export default function UserManagement() {
   };
 
   const handleDelete = (id) => {
-    if (confirm("Ban co chac muon xoa nguoi dung nay?")) {
+    if (confirm("Bạn có chắc muốn xóa người dùng này?")) {
       deleteUser(id);
     }
   };

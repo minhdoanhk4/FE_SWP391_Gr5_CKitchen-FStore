@@ -68,8 +68,8 @@ export default function IssueManagement() {
 
   const validate = () => {
     const errs = {};
-    if (!form.title.trim()) errs.title = "Vui long nhap tieu de";
-    if (!form.description.trim()) errs.description = "Vui long nhap mo ta";
+    if (!form.title.trim()) errs.title = "Vui lòng nhập tiêu đề";
+    if (!form.description.trim()) errs.description = "Vui lòng nhập mô tả";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -90,13 +90,13 @@ export default function IssueManagement() {
     };
     addIssue(newIssue);
     setShowModal(false);
-    toast.success("Da tao van de moi!");
+    toast.success("Đã tạo vấn đề mới!");
   };
 
   const handleStatusChange = (id, newStatus) => {
     updateIssue(id, { status: newStatus });
     toast.success(
-      `Da cap nhat trang thai thanh "${newStatus === "in_progress" ? "Dang xu ly" : "Da giai quyet"}"`,
+      `Đã cập nhật trạng thái thành "${newStatus === "in_progress" ? "Đang xử lý" : "Đã giải quyết"}"`,
     );
   };
 
@@ -110,7 +110,7 @@ export default function IssueManagement() {
       ],
     });
     setResponse("");
-    toast.success("Da them phan hoi!");
+    toast.success("Đã thêm phản hồi!");
   };
 
   return (

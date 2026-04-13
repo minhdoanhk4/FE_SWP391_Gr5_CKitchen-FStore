@@ -147,18 +147,18 @@ export default function AdminDashboard() {
         style={{ marginTop: "var(--space-6)" }}
       >
         <div className="dashboard-section__header">
-          <h3 className="dashboard-section__title">Nhat ky hoat dong</h3>
+          <h3 className="dashboard-section__title">Nhật ký hoạt động</h3>
         </div>
         <div className="dashboard-section__body--flush">
           <DataTable
             columns={[
               {
-                header: "Thoi gian",
+                header: "Thời gian",
                 accessor: "timestamp",
                 render: (row) => formatDateTime(row.timestamp),
               },
               {
-                header: "Hanh dong",
+                header: "Hành động",
                 accessor: "action",
                 render: (row) => (
                   <Badge variant="neutral">
@@ -166,8 +166,8 @@ export default function AdminDashboard() {
                   </Badge>
                 ),
               },
-              { header: "Nguoi dung", accessor: "user" },
-              { header: "Chi tiet", accessor: "details" },
+              { header: "Người dùng", accessor: "user" },
+              { header: "Chi tiết", accessor: "details" },
               {
                 header: "Module",
                 accessor: "module",
