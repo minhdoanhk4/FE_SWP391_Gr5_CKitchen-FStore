@@ -1,0 +1,279 @@
+// ============================================================
+// CKitchen FStore — Database Schema (DBML)
+// https://dbdiagram.io
+// Hệ thống Quản lý Bếp Trung Tâm & Cửa hàng Franchise
+// 17 tables
+// ============================================================
+
+// ---- CORE ----
+
+Table stores {
+  id varchar(10) [pk, note: 'CH001, CH002 ...']
+  name nvarchar(100) [not null]
+  address nvarchar(255) [not null]
+  phone varchar(20)
+  manager nvarchar(100)
+  status varchar(20) [not null, note: 'active | maintenance | closed']
+  open_date date
+  created_at datetime [default: `now()`]
+  updated_at datetime
+}
+
+Table kitchens {
+  id varchar(10) [pk, note: 'BT001, BT002 ...']
+  name nvarchar(100) [not null]
+  address nvarchar(255) [not null]
+  phone varchar(20)
+  capacity int
+  status varchar(20) [not null, note: 'active | inactive']
+  created_at datetime [default: `now()`]
+  updated_at datetime
+}
+
+// ---- USERS ----
+
+Table users {
+  id varchar(10) [pk, note: 'u1, u2 ...']
+  name nvarchar(100) [not null]
+  email varchar(100) [not null, unique]
+  role varchar(30) [not null, note: 'store_staff | kitchen_staff | supply_coordinator | manager | admin']
+  store_id varchar(10) [ref: > stores.id, note: 'NULL nếu không phải NV cửa hàng']
+  status varchar(20) [not null, note: 'active | inactive']
+  last_login datetime
+  created_at datetime [default: `now()`]
+  updated_at datetime
+}
+
+// ---- PRODUCTS & INGREDIENTS ----
+
+Table products {
+  id varchar(10) [pk, note: 'SP001 ...']
+  name nvarchar(100) [not null]
+  category nvarchar(50) [not null, note: 'Phở | Bún | Cơm | Bánh mì | Khai vị | Gia vị | Bán thành phẩm']
+  unit nvarchar(20) [not null, note: 'phần | ổ | lít']
+  price decimal(12,2) [not null, note: 'Giá bán (VND)']
+  cost decimal(12,2) [not null, note: 'Giá vốn (VND)']
+  image varchar(255)
+  created_at datetime [default: `now()`]
+  updated_at datetime
+}
+
+Table ingredients {
+  id varchar(10) [pk, note: 'NL001 ...']
+  name nvarchar(100) [not null]
+  unit nvarchar(20) [not null, note: 'kg | lít']
+  price decimal(12,2) [not null, note: 'Đơn giá (VND)']
+  supplier nvarchar(100)
+  min_stock int [not null, default: 0]
+  created_at datetime [default: `now()`]
+  updated_at datetime
+}
+
+Table recipes {
+  id int [pk, increment]
+  product_id varchar(10) [not null, ref: > products.id]
+  ingredient_id varchar(10) [not null, ref: > ingredients.id]
+  quantity decimal(10,4) [not null, note: 'Lượng NL cho 1 đơn vị SP']
+  unit nvarchar(20) [not null]
+  created_at datetime [default: `now()`]
+
+  indexes {
+    (product_id, ingredient_id) [unique]
+  }
+}
+
+// ---- ORDERS ----
+
+Table orders {
+  id varchar(10) [pk, note: 'DH001 ...']
+  store_id varchar(10) [not null, ref: > stores.id]
+  kitchen_id varchar(10) [not null, ref: > kitchens.id]
+  status varchar(20) [not null, default: 'pending', note: 'pending → confirmed → producing → ready → shipping → delivered | cancelled']
+  priority varchar(10) [not null, default: 'normal', note: 'low | normal | high']
+  created_at datetime [not null, default: `now()`]
+  requested_date date [not null]
+  notes nvarchar(500)
+  created_by nvarchar(100)
+  total decimal(15,2) [note: 'Tổng giá trị (VND)']
+  updated_at datetime
+}
+
+Table order_items {
+  id int [pk, increment]
+  order_id varchar(10) [not null, ref: > orders.id]
+  product_id varchar(10) [not null, ref: > products.id]
+  quantity int [not null]
+  unit nvarchar(20) [not null]
+  created_at datetime [default: `now()`]
+}
+
+// ---- SHIPPERS & DELIVERIES ----
+
+Table shippers {
+  id varchar(10) [pk, note: 'SH001 ...']
+  name nvarchar(100) [not null]
+  phone varchar(20) [not null]
+  license_plate varchar(20) [note: 'Biển số xe']
+  vehicle_type varchar(30) [note: 'xe máy | xe tải nhỏ | xe tải lớn']
+  status varchar(20) [not null, default: 'available', note: 'available | busy | off_duty']
+  kitchen_id varchar(10) [ref: > kitchens.id, note: 'Bếp trung tâm trực thuộc']
+  created_at datetime [default: `now()`]
+  updated_at datetime
+}
+
+Table deliveries {
+  id varchar(10) [pk, note: 'GH001 ...']
+  order_id varchar(10) [not null, ref: > orders.id]
+  shipper_id varchar(10) [not null, ref: > shippers.id]
+  status varchar(20) [not null, default: 'assigned', note: 'assigned → picked_up → in_transit → delivered | failed']
+  assigned_at datetime [not null, default: `now()`]
+  picked_up_at datetime [note: 'Thời điểm lấy hàng']
+  delivered_at datetime [note: 'Thời điểm giao xong']
+  notes nvarchar(500)
+  receiver_name nvarchar(100) [note: 'Người nhận tại cửa hàng']
+  receiver_signature varchar(255) [note: 'Chữ ký xác nhận (URL)']
+  temperature_ok boolean [default: true, note: 'Nhiệt độ đạt chuẩn?']
+  created_at datetime [default: `now()`]
+  updated_at datetime
+}
+
+// ---- INVENTORY ----
+
+Table store_inventory {
+  id int [pk, increment]
+  store_id varchar(10) [not null, ref: > stores.id]
+  product_id varchar(10) [not null, ref: > products.id]
+  quantity int [not null, default: 0]
+  unit nvarchar(20) [not null]
+  min_stock int [not null, default: 0]
+  expiry_date date
+  updated_at datetime
+
+  indexes {
+    (store_id, product_id) [unique]
+  }
+}
+
+Table kitchen_inventory {
+  id int [pk, increment]
+  ingredient_id varchar(10) [not null, ref: > ingredients.id]
+  quantity decimal(10,2) [not null, default: 0]
+  unit nvarchar(20) [not null]
+  min_stock int [not null, default: 0]
+  batch_no varchar(30) [note: 'LO-240412-01']
+  expiry_date date
+  supplier nvarchar(100)
+  updated_at datetime
+}
+
+// ---- PRODUCTION ----
+
+Table production_plans {
+  id varchar(10) [pk, note: 'KH-001 ...']
+  product_id varchar(10) [not null, ref: > products.id]
+  quantity int [not null]
+  unit nvarchar(20) [not null]
+  status varchar(20) [not null, default: 'planned', note: 'planned | in_progress | completed']
+  start_date datetime [not null]
+  end_date datetime
+  staff nvarchar(100)
+  notes nvarchar(500)
+  created_at datetime [default: `now()`]
+  updated_at datetime
+}
+
+Table plan_ingredients {
+  id int [pk, increment]
+  plan_id varchar(10) [not null, ref: > production_plans.id]
+  name nvarchar(100) [not null]
+  qty varchar(20) [not null]
+  created_at datetime [default: `now()`]
+}
+
+Table batches {
+  id varchar(20) [pk, note: 'LO-SX-001 ...']
+  product_id varchar(10) [not null, ref: > products.id]
+  kitchen_id varchar(10) [not null, ref: > kitchens.id, note: 'Bếp sản xuất lô này']
+  plan_id varchar(10) [ref: > production_plans.id, note: 'Kế hoạch SX tạo ra lô này (optional)']
+  quantity int [not null]
+  unit nvarchar(20) [not null]
+  status varchar(20) [not null, default: 'planned', note: 'planned | in_progress | completed']
+  start_date datetime [not null]
+  end_date datetime
+  staff nvarchar(100)
+  created_at datetime [default: `now()`]
+  updated_at datetime
+}
+
+// ---- ISSUES ----
+
+Table issues {
+  id varchar(10) [pk, note: 'IS001 ...']
+  order_id varchar(10) [ref: > orders.id, note: 'Optional - có thể NULL']
+  delivery_id varchar(10) [ref: > deliveries.id, note: 'Optional - liên kết giao hàng']
+  type varchar(30) [not null, note: 'late_delivery | shortage | quality | damaged']
+  title nvarchar(200) [not null]
+  description nvarchar(1000)
+  status varchar(20) [not null, default: 'open', note: 'open | in_progress | resolved']
+  priority varchar(10) [not null, default: 'medium', note: 'low | medium | high']
+  created_at datetime [not null, default: `now()`]
+  assignee nvarchar(100)
+  updated_at datetime
+}
+
+// ---- AUDIT LOGS ----
+
+Table audit_logs {
+  id varchar(10) [pk, note: 'AL001 ...']
+  action varchar(50) [not null, note: 'user_login | order_created | delivery_assigned | ...']
+  user_id varchar(10) [not null, ref: > users.id]
+  user_name nvarchar(100) [not null]
+  details nvarchar(500)
+  timestamp datetime [not null, default: `now()`]
+  module varchar(50) [not null, note: 'auth | orders | production | delivery | issues | products | users | config | stores']
+}
+
+// ============================================================
+// TABLE GROUPS (visual grouping in dbdiagram.io)
+// ============================================================
+
+TableGroup core {
+  stores
+  kitchens
+}
+
+TableGroup user_management {
+  users
+}
+
+TableGroup catalog {
+  products
+  ingredients
+  recipes
+}
+
+TableGroup order_management {
+  orders
+  order_items
+}
+
+TableGroup shipping {
+  shippers
+  deliveries
+}
+
+TableGroup inventory {
+  store_inventory
+  kitchen_inventory
+}
+
+TableGroup production {
+  production_plans
+  plan_ingredients
+  batches
+}
+
+TableGroup tracking {
+  issues
+  audit_logs
+}
