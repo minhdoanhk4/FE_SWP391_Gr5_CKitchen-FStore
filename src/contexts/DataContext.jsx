@@ -13,6 +13,7 @@ import {
   kitchens as mockKitchens,
   productionPlans as mockProductionPlans,
   auditLogs as mockAuditLogs,
+  salesRecords as mockSalesRecords,
   dashboardStats,
   revenueData,
   ordersByStore,
@@ -45,6 +46,23 @@ const initialState = {
   kitchens: [...mockKitchens],
   productionPlans: [...mockProductionPlans],
   auditLogs: [...mockAuditLogs],
+  salesRecords: [...mockSalesRecords],
+  systemConfig: {
+    systemName: "CKitchen Franchise Manager",
+    email: "support@ckitchen.vn",
+    timezone: "UTC+7",
+    currency: "VND",
+    massUnit: "kg",
+    volumeUnit: "lít",
+    countUnit: "phần",
+    expiryWarningDays: "2",
+    lowStockAlert: "yes",
+    newOrderAlert: "yes",
+    notifMethod: "in-app",
+    maxProcessingHours: "24",
+    maxRetries: "2",
+    autoConfirm: "no",
+  },
 };
 
 function dataReducer(state, action) {
@@ -178,6 +196,52 @@ function dataReducer(state, action) {
     case "ADD_AUDIT_LOG":
       return { ...state, auditLogs: [action.payload, ...state.auditLogs] };
 
+    // Sales Records
+    case "ADD_SALE":
+      return {
+        ...state,
+        salesRecords: [...state.salesRecords, action.payload],
+      };
+
+    // Store Inventory — add new item
+    case "ADD_STORE_INVENTORY":
+      return {
+        ...state,
+        storeInventory: [...state.storeInventory, action.payload],
+      };
+
+    // Kitchen Inventory — add new item
+    case "ADD_KITCHEN_INVENTORY":
+      return {
+        ...state,
+        kitchenInventory: [...state.kitchenInventory, action.payload],
+      };
+
+    // Recipes
+    case "ADD_RECIPE":
+      return { ...state, recipes: [...state.recipes, action.payload] };
+    case "UPDATE_RECIPE":
+      return {
+        ...state,
+        recipes: state.recipes.map((r) =>
+          r.productId === action.payload.productId
+            ? { ...r, ...action.payload.changes }
+            : r,
+        ),
+      };
+    case "DELETE_RECIPE":
+      return {
+        ...state,
+        recipes: state.recipes.filter((r) => r.productId !== action.payload),
+      };
+
+    // System Config
+    case "UPDATE_CONFIG":
+      return {
+        ...state,
+        systemConfig: { ...state.systemConfig, ...action.payload },
+      };
+
     default:
       return state;
   }
@@ -296,6 +360,38 @@ export function DataProvider({ children }) {
     dispatch({ type: "DELETE_PRODUCTION_PLAN", payload: id });
   }, []);
 
+  // Sales
+  const addSale = useCallback((sale) => {
+    dispatch({ type: "ADD_SALE", payload: sale });
+  }, []);
+
+  // Inventory — add items
+  const addStoreInventoryItem = useCallback((item) => {
+    dispatch({ type: "ADD_STORE_INVENTORY", payload: item });
+  }, []);
+
+  const addKitchenInventoryItem = useCallback((item) => {
+    dispatch({ type: "ADD_KITCHEN_INVENTORY", payload: item });
+  }, []);
+
+  // Recipes
+  const addRecipe = useCallback((recipe) => {
+    dispatch({ type: "ADD_RECIPE", payload: recipe });
+  }, []);
+
+  const updateRecipe = useCallback((productId, changes) => {
+    dispatch({ type: "UPDATE_RECIPE", payload: { productId, changes } });
+  }, []);
+
+  const deleteRecipe = useCallback((productId) => {
+    dispatch({ type: "DELETE_RECIPE", payload: productId });
+  }, []);
+
+  // System Config
+  const updateConfig = useCallback((changes) => {
+    dispatch({ type: "UPDATE_CONFIG", payload: changes });
+  }, []);
+
   const value = {
     // State
     ...state,
@@ -323,6 +419,13 @@ export function DataProvider({ children }) {
     updateProductionPlan,
     deleteProductionPlan,
     addAuditLog,
+    addSale,
+    addStoreInventoryItem,
+    addKitchenInventoryItem,
+    addRecipe,
+    updateRecipe,
+    deleteRecipe,
+    updateConfig,
 
     // Read-only chart/stats data
     dashboardStats,

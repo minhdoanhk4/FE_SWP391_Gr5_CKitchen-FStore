@@ -6,13 +6,21 @@ import { useAuth, ROLE_INFO } from "../../../contexts/AuthContext";
 import { useData } from "../../../contexts/DataContext";
 import "../Dashboard.css";
 
-const roleDist = [
-  { name: "Cửa hàng", value: 5, color: "#2D6A4F" },
-  { name: "Bếp", value: 2, color: "#E76F51" },
-  { name: "Điều phối", value: 1, color: "#F4A261" },
-  { name: "Quản lý", value: 1, color: "#457B9D" },
-  { name: "Admin", value: 1, color: "#6B7280" },
-];
+const ROLE_COLORS = {
+  store_staff: "#2D6A4F",
+  kitchen_staff: "#E76F51",
+  supply_coordinator: "#F4A261",
+  manager: "#457B9D",
+  admin: "#6B7280",
+};
+
+const ROLE_DISPLAY = {
+  store_staff: "Cửa hàng",
+  kitchen_staff: "Bếp",
+  supply_coordinator: "Điều phối",
+  manager: "Quản lý",
+  admin: "Admin",
+};
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -25,6 +33,20 @@ export default function AdminDashboard() {
     AUDIT_ACTION_LABELS,
   } = useData();
   const stats = dashboardStats.admin;
+
+  // Derived from live data
+  const totalUsers = allUsers.length;
+  const activeUsers = allUsers.filter((u) => u.status === "active").length;
+  const roleDist = Object.entries(
+    allUsers.reduce((acc, u) => {
+      acc[u.role] = (acc[u.role] || 0) + 1;
+      return acc;
+    }, {}),
+  ).map(([role, count]) => ({
+    name: ROLE_DISPLAY[role] || role,
+    value: count,
+    color: ROLE_COLORS[role] || "#9CA3AF",
+  }));
 
   const userColumns = [
     { header: "Tên", accessor: "name", sortable: true },
@@ -59,27 +81,27 @@ export default function AdminDashboard() {
         <p className="welcome-banner__greeting">Quản trị viên,</p>
         <h2 className="welcome-banner__name">{user?.name} ⚙️</h2>
         <p className="welcome-banner__summary">
-          Hệ thống có {stats.totalUsers} người dùng, {stats.totalStores} cửa
-          hàng. Uptime: {stats.systemUptime}%.
+          Hệ thống có {totalUsers} người dùng, {stores.length} cửa hàng. Uptime:{" "}
+          {stats.systemUptime}%.
         </p>
       </div>
 
       <div className="dashboard-stats">
         <StatCard
           label="Tổng người dùng"
-          value={stats.totalUsers}
+          value={totalUsers}
           icon={Users}
           color="primary"
         />
         <StatCard
           label="Đang hoạt động"
-          value={stats.activeUsers}
+          value={activeUsers}
           icon={Activity}
           color="accent"
         />
         <StatCard
           label="Cửa hàng"
-          value={stats.totalStores}
+          value={stores.length}
           icon={Store}
           color="info"
         />

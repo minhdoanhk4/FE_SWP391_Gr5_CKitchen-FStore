@@ -138,7 +138,18 @@ export default function Reports({
                 fontSize={12}
                 tick={{ fill: "var(--text-secondary)" }}
               />
-              <YAxis fontSize={12} tick={{ fill: "var(--text-secondary)" }} />
+              <YAxis
+                yAxisId="left"
+                fontSize={12}
+                tick={{ fill: "var(--text-secondary)" }}
+              />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                fontSize={12}
+                tick={{ fill: "var(--text-secondary)" }}
+                tickFormatter={(v) => `${(v / 1000000).toFixed(0)}M`}
+              />
               <Tooltip
                 contentStyle={{
                   background: "var(--surface-card)",
@@ -148,15 +159,17 @@ export default function Reports({
               />
               <Legend />
               <Bar
+                yAxisId="left"
                 dataKey="orders"
                 name="Số đơn"
                 fill="var(--primary)"
                 radius={[6, 6, 0, 0]}
               />
               <Bar
+                yAxisId="right"
                 dataKey="revenue"
                 name="Doanh thu"
-                fill="var(--accent-light)"
+                fill="var(--accent)"
                 radius={[6, 6, 0, 0]}
               />
             </BarChart>

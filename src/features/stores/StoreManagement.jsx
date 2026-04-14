@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Plus, Edit, Trash2 } from "lucide-react";
+import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { DataTable, Badge, Button, Modal } from "../../components/ui";
 import { Input, Select } from "../../components/ui";
+import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
 
 const STATUS_OPTIONS = [
@@ -11,6 +13,7 @@ const STATUS_OPTIONS = [
 ];
 
 export default function StoreManagement() {
+  const { user } = useAuth();
   const {
     stores: storeList,
     kitchens: kitchenList,
@@ -18,9 +21,11 @@ export default function StoreManagement() {
     addStore,
     updateStore,
     deleteStore,
+    addAuditLog,
   } = useData();
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const [form, setForm] = useState({
     name: "",
     address: "",
@@ -68,20 +73,30 @@ export default function StoreManagement() {
     if (!validate()) return;
     if (editItem) {
       updateStore(editItem.id, form);
+      addAuditLog("store_updated", user.name, `Cập nhật CH ${form.name}`, "stores");
+      toast.success(`Đã cập nhật cửa hàng ${form.name}`);
     } else {
+      const maxNum = storeList.reduce((max, s) => {
+        const num = parseInt(s.id.replace("CH", ""));
+        return num > max ? num : max;
+      }, 0);
       addStore({
-        id: `CH${String(storeList.length + 1).padStart(3, "0")}`,
+        id: `CH${String(maxNum + 1).padStart(3, "0")}`,
         ...form,
         openDate: new Date().toISOString().split("T")[0],
       });
+      addAuditLog("store_created", user.name, `Tạo CH ${form.name}`, "stores");
+      toast.success(`Đã thêm cửa hàng ${form.name}`);
     }
     setShowModal(false);
   };
 
-  const handleDelete = (id) => {
-    if (confirm("Bạn có chắc muốn xóa cửa hàng này?")) {
-      deleteStore(id);
-    }
+  const handleDeleteConfirm = () => {
+    if (!confirmDelete) return;
+    deleteStore(confirmDelete.id);
+    addAuditLog("store_deleted", user.name, `Xóa CH ${confirmDelete.name}`, "stores");
+    toast.success("Đã xóa cửa hàng");
+    setConfirmDelete(null);
   };
 
   const storeColumns = [
@@ -130,7 +145,7 @@ export default function StoreManagement() {
             icon={Trash2}
             onClick={(e) => {
               e.stopPropagation();
-              handleDelete(row.id);
+              setConfirmDelete(row);
             }}
           />
         </div>
@@ -155,9 +170,9 @@ export default function StoreManagement() {
     {
       header: "Trạng thái",
       accessor: "status",
-      render: () => (
-        <Badge variant="success" dot>
-          Hoạt động
+      render: (r) => (
+        <Badge variant={r.status === "active" ? "success" : "warning"} dot>
+          {r.status === "active" ? "Hoạt động" : "Không hoạt động"}
         </Badge>
       ),
     },
@@ -276,6 +291,28 @@ export default function StoreManagement() {
             onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
           />
         </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        title="Xác nhận xóa"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmDelete(null)}>
+              Hủy
+            </Button>
+            <Button variant="danger" onClick={handleDeleteConfirm}>
+              Xóa cửa hàng
+            </Button>
+          </>
+        }
+      >
+        <p>
+          Bạn có chắc muốn xóa cửa hàng{" "}
+          <strong>{confirmDelete?.name}</strong>? Hành động này không thể hoàn tác.
+        </p>
       </Modal>
     </PageWrapper>
   );

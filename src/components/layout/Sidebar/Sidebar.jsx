@@ -20,6 +20,8 @@ import {
   Moon,
   Sun,
   Layers,
+  DollarSign,
+  PackagePlus,
 } from "lucide-react";
 import { useAuth, ROLES, ROLE_INFO } from "../../../contexts/AuthContext";
 import { useTheme } from "../../../contexts/ThemeContext";
@@ -40,6 +42,7 @@ const NAV_CONFIG = {
         },
         { to: "/store/orders/new", icon: ClipboardList, label: "Tạo đơn mới" },
         { to: "/store/inventory", icon: Package, label: "Tồn kho" },
+        { to: "/store/sales", icon: DollarSign, label: "Ghi nhận bán hàng" },
         { to: "/store/receiving", icon: Receipt, label: "Nhận hàng" },
       ],
     },

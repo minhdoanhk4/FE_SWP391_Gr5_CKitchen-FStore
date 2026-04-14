@@ -74,7 +74,6 @@ export default function ManagerInventory() {
     },
     {
       header: "Trạng thái",
-      accessor: "status",
       render: (row) => {
         if (row.quantity === 0)
           return (
@@ -100,7 +99,7 @@ export default function ManagerInventory() {
   const kitchenColumns = [
     { header: "Nguyên liệu", accessor: "name", sortable: true },
     {
-      header: "Lo",
+      header: "Lô",
       accessor: "batchNo",
       render: (r) => (
         <span className="font-mono" style={{ fontSize: "12px" }}>
@@ -157,6 +156,12 @@ export default function ManagerInventory() {
     {
       header: "Trạng thái",
       render: (row) => {
+        if (isExpired(row.expiryDate))
+          return (
+            <Badge variant="danger" dot>
+              Hết hạn
+            </Badge>
+          );
         if (row.quantity <= row.minStock)
           return (
             <Badge variant="danger" dot>

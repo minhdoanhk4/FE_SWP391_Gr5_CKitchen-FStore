@@ -29,6 +29,7 @@ import NewOrder from "./features/orders/store/NewOrder";
 import OrderDetail from "./features/orders/store/OrderDetail";
 import ReceiveGoods from "./features/orders/store/ReceiveGoods";
 import StoreInventory from "./features/inventory/store/StoreInventory";
+import StoreSales from "./features/sales/StoreSales";
 
 // Kitchen features
 import KanbanBoard from "./features/orders/kanban/KanbanBoard";
@@ -98,6 +99,7 @@ function AppRoutes() {
           <Route path="/store/orders/new" element={<NewOrder />} />
           <Route path="/store/orders/:id" element={<OrderDetail />} />
           <Route path="/store/inventory" element={<StoreInventory />} />
+          <Route path="/store/sales" element={<StoreSales />} />
           <Route path="/store/receiving" element={<ReceiveGoods />} />
         </Route>
 

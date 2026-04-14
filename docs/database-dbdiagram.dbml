@@ -248,6 +248,42 @@ Table kitchen_inventory {
   updated_at datetime
 }
 
+// ---- SALES ----
+
+Table sales_records {
+  id varchar(10) [pk, note: 'SR001 ...']
+  store_id varchar(10) [not null, ref: > stores.id]
+  date date [not null]
+  total_revenue decimal(15,2) [not null]
+  recorded_by nvarchar(100) [not null]
+  recorded_at datetime [not null, default: `now()`]
+  created_at datetime [default: `now()`]
+}
+
+Table sale_items {
+  id int [pk, increment]
+  sale_id varchar(10) [not null, ref: > sales_records.id]
+  product_id varchar(10) [not null, ref: > products.id]
+  quantity int [not null]
+  unit nvarchar(20) [not null]
+  unit_price decimal(12,2) [not null]
+  created_at datetime [default: `now()`]
+}
+
+// ---- INVENTORY DISPOSALS ----
+
+Table inventory_disposals {
+  id int [pk, increment]
+  inventory_type varchar(20) [not null, note: 'kitchen | store']
+  item_id int [not null, note: 'FK to kitchen_inventory.id or store_inventory.id']
+  item_name nvarchar(100) [not null]
+  quantity_disposed decimal(10,2) [not null]
+  unit nvarchar(20) [not null]
+  reason nvarchar(200) [not null, note: 'expired | damaged | quality_issue']
+  disposed_by varchar(10) [not null, ref: > users.id]
+  disposed_at datetime [not null, default: `now()`]
+}
+
 // ---- PRODUCTION ----
 
 Table production_plans {
@@ -277,13 +313,15 @@ Table plan_ingredients {
 
 Table batches {
   id varchar(20) [pk, note: 'LO-SX-001 ...']
+  order_id varchar(10) [ref: > orders.id, note: 'Đơn hàng tạo lô này (auto khi xác nhận đơn)']
+  order_item_index int [note: 'Vị trí sản phẩm trong đơn hàng']
+  plan_id varchar(10) [ref: > production_plans.id, note: 'Kế hoạch SX tạo ra lô này (legacy)']
   product_id varchar(10) [not null, ref: > products.id]
-  kitchen_id varchar(10) [not null, ref: > kitchens.id, note: 'Bếp sản xuất lô này']
-  plan_id varchar(10) [ref: > production_plans.id, note: 'Kế hoạch SX tạo ra lô này (optional)']
+  kitchen_id varchar(10) [ref: > kitchens.id, note: 'Bếp sản xuất lô này']
   quantity int [not null]
   unit nvarchar(20) [not null]
-  status varchar(20) [not null, default: 'planned', note: 'planned | in_progress | completed']
-  start_date datetime [not null]
+  status varchar(20) [not null, default: 'confirmed', note: 'confirmed | in_progress | completed | planned']
+  start_date datetime [note: 'Set khi bắt đầu SX']
   end_date datetime
   staff nvarchar(100)
   created_at datetime [default: `now()`]
@@ -358,6 +396,12 @@ TableGroup delivery {
 TableGroup inventory {
   store_inventory
   kitchen_inventory
+  inventory_disposals
+}
+
+TableGroup sales {
+  sales_records
+  sale_items
 }
 
 TableGroup production {

@@ -15,6 +15,7 @@ import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { Card, Badge, Button } from "../../components/ui";
 import { Modal } from "../../components/ui";
 import { Input, Select, Textarea } from "../../components/ui";
+import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
 import "./ProductionPlan.css";
 
@@ -25,21 +26,26 @@ const STATUS_CONFIG = {
 };
 
 export default function ProductionPlan() {
+  const { user } = useAuth();
   const {
     products,
     recipes,
     ingredients: ingredientsList,
     orders,
+    kitchenInventory,
     productionPlans: plans,
     formatDateTime,
     addProductionPlan,
     updateProductionPlan,
     deleteProductionPlan,
+    updateKitchenInventory,
+    addAuditLog,
   } = useData();
   const [showModal, setShowModal] = useState(false);
   const [editPlan, setEditPlan] = useState(null);
   const [filter, setFilter] = useState("all");
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   const [form, setForm] = useState({
     productId: "",
@@ -151,8 +157,13 @@ export default function ProductionPlan() {
         notes: form.notes,
       });
     } else {
+      const maxPlanNum = plans.reduce((max, p) => {
+        const num = parseInt(p.id.replace("KH-", ""));
+        return num > max ? num : max;
+      }, 0);
+      const planId = `KH-${String(maxPlanNum + 1).padStart(3, "0")}`;
       const newPlan = {
-        id: `KH-${String(plans.length + 1).padStart(3, "0")}`,
+        id: planId,
         productId: form.productId,
         productName: product?.name || "Sản phẩm",
         quantity: parseInt(form.quantity) || 0,
@@ -165,22 +176,64 @@ export default function ProductionPlan() {
         ingredients: computedIngredients,
       };
       addProductionPlan(newPlan);
+
+      addAuditLog(
+        "production_planned",
+        user.name,
+        `Tạo KH SX ${planId} - ${product?.name} x${form.quantity}`,
+        "production",
+      );
     }
     setShowModal(false);
   };
 
-  const handleDelete = (id) => {
-    if (confirm("Bạn có chắc muốn xóa kế hoạch này?")) {
-      deleteProductionPlan(id);
-      if (selectedPlan?.id === id) setSelectedPlan(null);
-    }
+  const handleDelete = (plan) => {
+    setConfirmDelete(plan);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!confirmDelete) return;
+    deleteProductionPlan(confirmDelete.id);
+    if (selectedPlan?.id === confirmDelete.id) setSelectedPlan(null);
+    setConfirmDelete(null);
   };
 
   const handleStatusChange = (id, newStatus) => {
-    updateProductionPlan(id, {
-      status: newStatus,
-      endDate: newStatus === "completed" ? new Date().toISOString() : undefined,
-    });
+    const plan = plans.find((p) => p.id === id);
+    const endDate =
+      newStatus === "completed" ? new Date().toISOString() : undefined;
+    updateProductionPlan(id, { status: newStatus, endDate });
+
+    // Auto-deduct ingredients on completion
+    if (newStatus === "completed" && plan) {
+      const recipe = recipes.find((r) => r.productId === plan.productId);
+      if (recipe) {
+        recipe.ingredients.forEach((ri) => {
+          const inv = kitchenInventory.find(
+            (i) => i.ingredientId === ri.ingredientId,
+          );
+          if (inv) {
+            const deduction = ri.quantity * plan.quantity;
+            updateKitchenInventory(inv.id, {
+              quantity: Math.max(0, Math.round((inv.quantity - deduction) * 100) / 100),
+            });
+          }
+        });
+      }
+      addAuditLog(
+        "production_completed",
+        user.name,
+        `Hoàn thành KH ${id} - NL đã trừ kho tự động`,
+        "production",
+      );
+    } else if (newStatus === "in_progress") {
+      addAuditLog(
+        "production_started",
+        user.name,
+        `Bắt đầu SX theo KH ${id}`,
+        "production",
+      );
+    }
   };
 
   const productOptions = products.map((p) => ({ value: p.id, label: p.name }));
@@ -326,7 +379,7 @@ export default function ProductionPlan() {
                     icon={Trash2}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDelete(plan.id);
+                      handleDelete(plan);
                     }}
                   />
                 </div>
@@ -624,6 +677,30 @@ export default function ProductionPlan() {
             </div>
           )}
         </div>
+      </Modal>
+
+      {/* Delete confirmation modal */}
+      <Modal
+        isOpen={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        title="Xác nhận xóa"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmDelete(null)}>
+              Hủy
+            </Button>
+            <Button variant="danger" onClick={handleDeleteConfirm}>
+              Xóa
+            </Button>
+          </>
+        }
+      >
+        <p>
+          Bạn có chắc muốn xóa kế hoạch{" "}
+          <strong>{confirmDelete?.id}</strong> —{" "}
+          {confirmDelete?.productName}?
+        </p>
       </Modal>
     </PageWrapper>
   );

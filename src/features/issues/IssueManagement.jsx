@@ -13,6 +13,7 @@ import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { Card, Badge, Button, Modal } from "../../components/ui";
 import { Input, Textarea, Select } from "../../components/ui";
 import { useData } from "../../contexts/DataContext";
+import { useAuth } from "../../contexts/AuthContext";
 
 const TYPE_LABELS = {
   late_delivery: "Giao trễ",
@@ -38,6 +39,7 @@ const STATUS_ICONS = {
 
 export default function IssueManagement() {
   const { issues, addIssue, updateIssue, formatDateTime } = useData();
+  const { user } = useAuth();
   const [filter, setFilter] = useState("all");
   const [showModal, setShowModal] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState(null);
@@ -85,7 +87,7 @@ export default function IssueManagement() {
       status: "open",
       priority: form.priority,
       createdAt: new Date().toISOString(),
-      assignee: "Le Minh Chau",
+      assignee: user.name,
       responses: [],
     };
     addIssue(newIssue);
@@ -95,9 +97,13 @@ export default function IssueManagement() {
 
   const handleStatusChange = (id, newStatus) => {
     updateIssue(id, { status: newStatus });
-    toast.success(
-      `Đã cập nhật trạng thái thành "${newStatus === "in_progress" ? "Đang xử lý" : "Đã giải quyết"}"`,
-    );
+    const label =
+      newStatus === "in_progress"
+        ? "Đang xử lý"
+        : newStatus === "resolved"
+          ? "Đã giải quyết"
+          : "Đang mở";
+    toast.success(`Đã cập nhật trạng thái thành "${label}"`);
   };
 
   const handleAddResponse = (id) => {
@@ -106,7 +112,7 @@ export default function IssueManagement() {
     updateIssue(id, {
       responses: [
         ...(issue.responses || []),
-        { text: response, time: new Date().toISOString(), by: "Le Minh Chau" },
+        { text: response, time: new Date().toISOString(), by: user.name },
       ],
     });
     setResponse("");

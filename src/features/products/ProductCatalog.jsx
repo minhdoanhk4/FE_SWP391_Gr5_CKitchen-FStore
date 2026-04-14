@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Plus, Edit, Trash2, Eye } from "lucide-react";
+import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { DataTable, Badge, Button, Modal, Card } from "../../components/ui";
-import { Input, Select, Textarea } from "../../components/ui";
+import { Input, Select } from "../../components/ui";
+import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
 
 const CATEGORY_OPTIONS = [
@@ -23,6 +25,7 @@ const UNIT_OPTIONS = [
 ];
 
 export default function ProductCatalog() {
+  const { user } = useAuth();
   const {
     products,
     ingredients,
@@ -31,10 +34,16 @@ export default function ProductCatalog() {
     addProduct,
     updateProduct,
     deleteProduct,
+    addRecipe,
+    updateRecipe,
+    addAuditLog,
   } = useData();
   const [showModal, setShowModal] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
   const [viewProduct, setViewProduct] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [showRecipeModal, setShowRecipeModal] = useState(null);
+  const [recipeItems, setRecipeItems] = useState([]);
   const [form, setForm] = useState({
     name: "",
     category: "",
@@ -43,6 +52,11 @@ export default function ProductCatalog() {
     cost: "",
   });
   const [errors, setErrors] = useState({});
+
+  const ingredientOptions = ingredients.map((i) => ({
+    value: i.id,
+    label: `${i.name} (${i.unit})`,
+  }));
 
   const handleOpenNew = () => {
     setEditProduct(null);
@@ -88,9 +102,15 @@ export default function ProductCatalog() {
         price: parseInt(form.price) || 0,
         cost: parseInt(form.cost) || 0,
       });
+      addAuditLog("product_updated", user.name, `Cập nhật sản phẩm ${form.name}`, "products");
+      toast.success(`Đã cập nhật sản phẩm ${form.name}`);
     } else {
+      const maxNum = products.reduce((max, p) => {
+        const num = parseInt(p.id.replace("SP", ""));
+        return num > max ? num : max;
+      }, 0);
       addProduct({
-        id: `SP${String(products.length + 1).padStart(3, "0")}`,
+        id: `SP${String(maxNum + 1).padStart(3, "0")}`,
         name: form.name,
         category: form.category,
         unit: form.unit,
@@ -98,14 +118,53 @@ export default function ProductCatalog() {
         cost: parseInt(form.cost) || 0,
         image: null,
       });
+      addAuditLog("product_created", user.name, `Tạo sản phẩm ${form.name}`, "products");
+      toast.success(`Đã tạo sản phẩm ${form.name}`);
     }
     setShowModal(false);
   };
 
-  const handleDelete = (id) => {
-    if (confirm("Bạn có chắc muốn xóa sản phẩm này?")) {
-      deleteProduct(id);
+  const handleDeleteConfirm = () => {
+    if (!confirmDelete) return;
+    deleteProduct(confirmDelete.id);
+    addAuditLog("product_deleted", user.name, `Xóa sản phẩm ${confirmDelete.name}`, "products");
+    toast.success(`Đã xóa sản phẩm ${confirmDelete.name}`);
+    setConfirmDelete(null);
+  };
+
+  // Recipe CRUD
+  const handleOpenRecipe = (product) => {
+    const existing = recipes.find((r) => r.productId === product.id);
+    setRecipeItems(
+      existing
+        ? existing.ingredients.map((i) => ({ ...i }))
+        : [{ ingredientId: "", quantity: "", unit: "kg" }],
+    );
+    setShowRecipeModal(product);
+  };
+
+  const handleSaveRecipe = () => {
+    const validItems = recipeItems.filter(
+      (i) => i.ingredientId && parseFloat(i.quantity) > 0,
+    );
+    if (validItems.length === 0) {
+      toast.error("Vui lòng thêm ít nhất 1 nguyên liệu");
+      return;
     }
+    const existing = recipes.find((r) => r.productId === showRecipeModal.id);
+    if (existing) {
+      updateRecipe(showRecipeModal.id, { ingredients: validItems });
+    } else {
+      addRecipe({ productId: showRecipeModal.id, ingredients: validItems });
+    }
+    addAuditLog(
+      "recipe_updated",
+      user.name,
+      `Cập nhật công thức ${showRecipeModal.name} (${validItems.length} NL)`,
+      "products",
+    );
+    toast.success(`Đã lưu công thức cho ${showRecipeModal.name}`);
+    setShowRecipeModal(null);
   };
 
   const recipe = viewProduct
@@ -151,9 +210,30 @@ export default function ProductCatalog() {
       header: "Lợi nhuận",
       accessor: "profit",
       render: (r) => {
-        const profit = (((r.price - r.cost) / r.price) * 100).toFixed(0);
+        const profit =
+          r.price > 0
+            ? (((r.price - r.cost) / r.price) * 100).toFixed(0)
+            : "0";
         return (
           <Badge variant={profit > 50 ? "success" : "warning"}>{profit}%</Badge>
+        );
+      },
+    },
+    {
+      header: "Công thức",
+      render: (row) => {
+        const hasRecipe = recipes.some((r) => r.productId === row.id);
+        return (
+          <Badge
+            variant={hasRecipe ? "success" : "neutral"}
+            style={{ cursor: "pointer" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenRecipe(row);
+            }}
+          >
+            {hasRecipe ? "Có" : "Chưa có"}
+          </Badge>
         );
       },
     },
@@ -192,7 +272,7 @@ export default function ProductCatalog() {
             title="Xóa"
             onClick={(e) => {
               e.stopPropagation();
-              handleDelete(row.id);
+              setConfirmDelete(row);
             }}
           />
         </div>
@@ -414,7 +494,7 @@ export default function ProductCatalog() {
                     marginBottom: "8px",
                   }}
                 >
-                  🧂 Công thức & Định mức nguyên liệu
+                  Công thức & Định mức nguyên liệu
                 </h4>
                 <div
                   style={{
@@ -474,11 +554,156 @@ export default function ProductCatalog() {
                   borderRadius: "var(--radius-md)",
                 }}
               >
-                Chưa có công thức cho sản phẩm này.
+                Chưa có công thức cho sản phẩm này.{" "}
+                <span
+                  style={{
+                    color: "var(--primary)",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                  }}
+                  onClick={() => {
+                    setViewProduct(null);
+                    handleOpenRecipe(viewProduct);
+                  }}
+                >
+                  Thêm công thức
+                </span>
               </div>
             )}
           </div>
         )}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        title="Xác nhận xóa"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmDelete(null)}>
+              Hủy
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleDeleteConfirm}
+            >
+              Xóa sản phẩm
+            </Button>
+          </>
+        }
+      >
+        <p>
+          Bạn có chắc muốn xóa sản phẩm{" "}
+          <strong>{confirmDelete?.name}</strong>? Hành động này không thể hoàn tác.
+        </p>
+      </Modal>
+
+      {/* Recipe Editor Modal */}
+      <Modal
+        isOpen={!!showRecipeModal}
+        onClose={() => setShowRecipeModal(null)}
+        title={
+          showRecipeModal
+            ? `Công thức: ${showRecipeModal.name}`
+            : ""
+        }
+        size="lg"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setShowRecipeModal(null)}
+            >
+              Hủy
+            </Button>
+            <Button onClick={handleSaveRecipe}>Lưu công thức</Button>
+          </>
+        }
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+            Định mức nguyên liệu cho 1 {showRecipeModal?.unit || "phần"} sản phẩm
+          </p>
+          {recipeItems.map((item, idx) => (
+            <div
+              key={idx}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 100px 80px 40px",
+                gap: "8px",
+                alignItems: "start",
+              }}
+            >
+              <Select
+                label={idx === 0 ? "Nguyên liệu" : ""}
+                options={ingredientOptions}
+                value={item.ingredientId}
+                onChange={(e) =>
+                  setRecipeItems((prev) =>
+                    prev.map((r, i) =>
+                      i === idx ? { ...r, ingredientId: e.target.value } : r,
+                    ),
+                  )
+                }
+              />
+              <Input
+                label={idx === 0 ? "Định mức" : ""}
+                type="number"
+                step="0.01"
+                value={item.quantity}
+                onChange={(e) =>
+                  setRecipeItems((prev) =>
+                    prev.map((r, i) =>
+                      i === idx ? { ...r, quantity: parseFloat(e.target.value) || "" } : r,
+                    ),
+                  )
+                }
+                placeholder="0.15"
+              />
+              <Select
+                label={idx === 0 ? "Đơn vị" : ""}
+                options={[
+                  { value: "kg", label: "kg" },
+                  { value: "lít", label: "lít" },
+                  { value: "g", label: "g" },
+                ]}
+                value={item.unit}
+                onChange={(e) =>
+                  setRecipeItems((prev) =>
+                    prev.map((r, i) =>
+                      i === idx ? { ...r, unit: e.target.value } : r,
+                    ),
+                  )
+                }
+              />
+              {recipeItems.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  icon={Trash2}
+                  onClick={() =>
+                    setRecipeItems((prev) => prev.filter((_, i) => i !== idx))
+                  }
+                  style={{ marginTop: idx === 0 ? "24px" : "0" }}
+                />
+              )}
+            </div>
+          ))}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              setRecipeItems((prev) => [
+                ...prev,
+                { ingredientId: "", quantity: "", unit: "kg" },
+              ])
+            }
+          >
+            + Thêm nguyên liệu
+          </Button>
+        </div>
       </Modal>
     </PageWrapper>
   );

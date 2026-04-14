@@ -840,6 +840,9 @@ export const kitchenInventory = [
 export const batches = [
   {
     id: "LO-SX-001",
+    orderId: null,
+    orderItemIndex: null,
+    planId: "KH-001",
     productId: "SP009",
     productName: "Nước Dùng Phở (cô đặc)",
     quantity: 100,
@@ -851,6 +854,9 @@ export const batches = [
   },
   {
     id: "LO-SX-002",
+    orderId: null,
+    orderItemIndex: null,
+    planId: "KH-002",
     productId: "SP010",
     productName: "Sốt Bún Bò Huế",
     quantity: 50,
@@ -862,6 +868,9 @@ export const batches = [
   },
   {
     id: "LO-SX-003",
+    orderId: null,
+    orderItemIndex: null,
+    planId: "KH-003",
     productId: "SP007",
     productName: "Chả Giò Hải Sản",
     quantity: 300,
@@ -1316,7 +1325,79 @@ export const AUDIT_ACTION_LABELS = {
   product_created: "Tạo SP",
   store_created: "Tạo CH",
   issue_updated: "Cập nhật vấn đề",
+  sale_recorded: "Ghi nhận bán hàng",
+  goods_received: "Nhận hàng",
+  inventory_import: "Nhập kho NL",
+  product_deleted: "Xóa SP",
+  user_deleted: "Xóa TK",
+  store_deleted: "Xóa CH",
+  recipe_updated: "Cập nhật công thức",
+  batch_created: "Tạo lô SX",
+  batch_completed: "Hoàn thành lô SX",
+  production_planned: "Tạo KH sản xuất",
+  production_completed: "Hoàn thành SX",
+  ingredient_disposed: "Hủy nguyên liệu hết hạn",
+  product_disposed: "Hủy sản phẩm hết hạn",
 };
+
+// ---- Sales Records ----
+export const salesRecords = [
+  {
+    id: "SR001",
+    storeId: "CH001",
+    date: "2026-04-13",
+    items: [
+      {
+        productId: "SP001",
+        productName: "Phở Bò Truyền Thống",
+        quantity: 45,
+        unit: "phần",
+        unitPrice: 45000,
+      },
+      {
+        productId: "SP002",
+        productName: "Phở Gà Đặc Biệt",
+        quantity: 30,
+        unit: "phần",
+        unitPrice: 50000,
+      },
+      {
+        productId: "SP005",
+        productName: "Bánh Mì Thịt Nướng",
+        quantity: 60,
+        unit: "ổ",
+        unitPrice: 25000,
+      },
+    ],
+    totalRevenue: 4525000,
+    recordedBy: "Nguyễn Văn An",
+    recordedAt: "2026-04-13T18:00:00",
+  },
+  {
+    id: "SR002",
+    storeId: "CH001",
+    date: "2026-04-12",
+    items: [
+      {
+        productId: "SP001",
+        productName: "Phở Bò Truyền Thống",
+        quantity: 38,
+        unit: "phần",
+        unitPrice: 45000,
+      },
+      {
+        productId: "SP004",
+        productName: "Cơm Tấm Sườn Bì Chả",
+        quantity: 25,
+        unit: "phần",
+        unitPrice: 42000,
+      },
+    ],
+    totalRevenue: 2760000,
+    recordedBy: "Nguyễn Văn An",
+    recordedAt: "2026-04-12T18:30:00",
+  },
+];
 
 // ---- Helpers ----
 export function formatCurrency(amount) {

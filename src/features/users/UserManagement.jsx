@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Plus, Edit, Trash2 } from "lucide-react";
+import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { DataTable, Badge, Button, Modal } from "../../components/ui";
 import { Input, Select } from "../../components/ui";
@@ -7,7 +8,8 @@ import { useAuth, ROLES, ROLE_INFO } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
 
 export default function UserManagement() {
-  const { users, stores, formatDateTime, addUser, updateUser, deleteUser } =
+  const { user: currentUser } = useAuth();
+  const { users, stores, formatDateTime, addUser, updateUser, deleteUser, addAuditLog } =
     useData();
 
   const ROLE_OPTIONS = Object.values(ROLES).map((r) => ({
@@ -22,6 +24,7 @@ export default function UserManagement() {
 
   const [showModal, setShowModal] = useState(false);
   const [editUser, setEditUser] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -64,20 +67,38 @@ export default function UserManagement() {
     if (!validate()) return;
     if (editUser) {
       updateUser(editUser.id, form);
+      addAuditLog("user_updated", currentUser.name, `Cập nhật TK ${form.name}`, "users");
+      toast.success(`Đã cập nhật thông tin người dùng ${form.name}`);
     } else {
+      const maxNum = users.reduce((max, u) => {
+        const num = parseInt(u.id.replace("u", ""));
+        return num > max ? num : max;
+      }, 0);
       addUser({
-        id: `u${users.length + 1}`,
+        id: `u${maxNum + 1}`,
         ...form,
         lastLogin: new Date().toISOString(),
       });
+      addAuditLog("user_created", currentUser.name, `Tạo TK ${form.name}`, "users");
+      toast.success(`Đã tạo người dùng ${form.name}`);
     }
     setShowModal(false);
   };
 
-  const handleDelete = (id) => {
-    if (confirm("Bạn có chắc muốn xóa người dùng này?")) {
-      deleteUser(id);
+  const handleDelete = (userToDelete) => {
+    if (userToDelete.id === currentUser.id) {
+      toast.error("Không thể xóa tài khoản của chính bạn!");
+      return;
     }
+    setConfirmDelete(userToDelete);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!confirmDelete) return;
+    deleteUser(confirmDelete.id);
+    addAuditLog("user_deleted", currentUser.name, `Xóa TK ${confirmDelete.name}`, "users");
+    toast.success("Đã xóa người dùng");
+    setConfirmDelete(null);
   };
 
   const columns = [
@@ -93,7 +114,15 @@ export default function UserManagement() {
         </Badge>
       ),
     },
-    { header: "Cửa hàng", accessor: "store", render: (r) => r.store || "—" },
+    {
+      header: "Cửa hàng",
+      accessor: "store",
+      render: (r) => {
+        if (!r.store) return "—";
+        const s = stores.find((st) => st.id === r.store);
+        return s ? s.name : r.store;
+      },
+    },
     {
       header: "Trạng thái",
       accessor: "status",
@@ -132,7 +161,7 @@ export default function UserManagement() {
             title="Xóa"
             onClick={(e) => {
               e.stopPropagation();
-              handleDelete(row.id);
+              handleDelete(row);
             }}
           />
         </div>
@@ -215,7 +244,13 @@ export default function UserManagement() {
               required
               options={ROLE_OPTIONS}
               value={form.role}
-              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  role: e.target.value,
+                  store: e.target.value === "store_staff" ? f.store : "",
+                }))
+              }
               error={errors.role}
             />
             <Select
@@ -238,6 +273,28 @@ export default function UserManagement() {
             />
           )}
         </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        title="Xác nhận xóa"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmDelete(null)}>
+              Hủy
+            </Button>
+            <Button variant="danger" onClick={handleDeleteConfirm}>
+              Xóa người dùng
+            </Button>
+          </>
+        }
+      >
+        <p>
+          Bạn có chắc muốn xóa người dùng{" "}
+          <strong>{confirmDelete?.name}</strong>? Hành động này không thể hoàn tác.
+        </p>
       </Modal>
     </PageWrapper>
   );

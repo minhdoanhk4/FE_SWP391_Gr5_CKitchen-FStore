@@ -25,6 +25,7 @@ import {
 import toast from "react-hot-toast";
 import PageWrapper from "../../../components/layout/PageWrapper/PageWrapper";
 import { Badge, Drawer, Modal, Button } from "../../../components/ui";
+import { useAuth } from "../../../contexts/AuthContext";
 import { useData } from "../../../contexts/DataContext";
 import "./KanbanBoard.css";
 
@@ -238,9 +239,17 @@ export default function KanbanBoard({
   title = "Bảng quản lý đơn hàng",
   subtitle,
 }) {
+  const { user } = useAuth();
   const {
     orders,
     updateOrder,
+    batches,
+    addBatch,
+    updateBatch,
+    recipes,
+    kitchenInventory,
+    updateKitchenInventory,
+    addAuditLog,
     STATUS_LABELS,
     STATUS_COLORS,
     formatCurrency,
@@ -269,6 +278,87 @@ export default function KanbanBoard({
     activeOrders.filter((o) => o.status === status);
 
   const findOrderById = (id) => activeOrders.find((o) => o.id === id);
+
+  const createBatchesForOrder = (order) => {
+    // Guard: don't create duplicates
+    if (batches.some((b) => b.orderId === order.id)) return;
+
+    const maxBatchNum = batches.reduce((max, b) => {
+      const match = b.id.match(/LO-SX-(\d+)/);
+      return match ? Math.max(max, parseInt(match[1])) : max;
+    }, 0);
+
+    order.items.forEach((item, index) => {
+      addBatch({
+        id: `LO-SX-${String(maxBatchNum + 1 + index).padStart(3, "0")}`,
+        orderId: order.id,
+        orderItemIndex: index,
+        planId: null,
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        unit: item.unit,
+        status: "confirmed",
+        startDate: null,
+        endDate: null,
+        staff: null,
+      });
+    });
+
+    addAuditLog(
+      "batch_created",
+      user.name,
+      `Tạo ${order.items.length} lô SX từ đơn ${order.id}`,
+      "production",
+    );
+    toast.success(`Đã tạo ${order.items.length} lô sản xuất từ đơn ${order.id}`);
+  };
+
+  const updateBatchesForOrder = (orderId, newOrderStatus) => {
+    const orderBatches = batches.filter((b) => b.orderId === orderId);
+
+    if (newOrderStatus === "producing") {
+      orderBatches.forEach((b) => {
+        updateBatch(b.id, {
+          status: "in_progress",
+          startDate: new Date().toISOString(),
+        });
+      });
+    } else if (newOrderStatus === "ready") {
+      orderBatches.forEach((b) => {
+        updateBatch(b.id, {
+          status: "completed",
+          endDate: new Date().toISOString(),
+        });
+
+        // Auto-deduct kitchen ingredients
+        const recipe = recipes.find((r) => r.productId === b.productId);
+        if (recipe) {
+          recipe.ingredients.forEach((ri) => {
+            const inv = kitchenInventory.find(
+              (i) => i.ingredientId === ri.ingredientId,
+            );
+            if (inv) {
+              const deduction = ri.quantity * b.quantity;
+              updateKitchenInventory(inv.id, {
+                quantity: Math.max(
+                  0,
+                  Math.round((inv.quantity - deduction) * 100) / 100,
+                ),
+              });
+            }
+          });
+        }
+      });
+
+      addAuditLog(
+        "production_completed",
+        user.name,
+        `Hoàn thành SX đơn ${orderId} - NL đã trừ kho tự động`,
+        "production",
+      );
+    }
+  };
 
   const handleCardClick = (order) => {
     if (!dragged) {
@@ -327,6 +417,17 @@ export default function KanbanBoard({
     const toLabel = STATUS_LABELS[toStatus];
 
     updateOrder(orderId, { status: toStatus });
+
+    // Side effects based on transition
+    if (fromStatus === "pending" && toStatus === "confirmed") {
+      const order = orders.find((o) => o.id === orderId);
+      if (order) createBatchesForOrder(order);
+    } else if (toStatus === "producing") {
+      updateBatchesForOrder(orderId, "producing");
+    } else if (toStatus === "ready") {
+      updateBatchesForOrder(orderId, "ready");
+    }
+
     toast.success(`${orderLabel}: ${fromLabel} ➜ ${toLabel}`, {
       duration: 3000,
     });

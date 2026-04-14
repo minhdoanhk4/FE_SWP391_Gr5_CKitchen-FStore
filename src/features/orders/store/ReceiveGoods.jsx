@@ -12,6 +12,10 @@ export default function ReceiveGoods() {
   const {
     orders,
     updateOrder,
+    storeInventory,
+    updateStoreInventory,
+    addStoreInventoryItem,
+    addAuditLog,
     STATUS_LABELS,
     STATUS_COLORS,
     formatCurrency,
@@ -27,14 +31,48 @@ export default function ReceiveGoods() {
   );
 
   const handleConfirm = (orderId) => {
+    const order = orders.find((o) => o.id === orderId);
     const orderFeedback = feedback[orderId] || {};
     updateOrder(orderId, {
       status: "delivered",
       qualityRating: orderFeedback.rating || null,
       qualityComment: orderFeedback.comment || null,
     });
+
+    // Auto-add received items to store inventory
+    if (order) {
+      order.items.forEach((item) => {
+        const existing = storeInventory.find(
+          (i) => i.storeId === user.store && i.productId === item.productId,
+        );
+        if (existing) {
+          updateStoreInventory(existing.id, {
+            quantity: existing.quantity + item.quantity,
+          });
+        } else {
+          addStoreInventoryItem({
+            id: Date.now() + Math.random(),
+            storeId: user.store,
+            productId: item.productId,
+            productName: item.productName,
+            quantity: item.quantity,
+            unit: item.unit,
+            minStock: 10,
+            expiryDate: null,
+          });
+        }
+      });
+
+      addAuditLog(
+        "goods_received",
+        user.name,
+        `Nhận hàng đơn ${orderId} (${order.items.length} SP) - tồn kho đã cập nhật`,
+        "inventory",
+      );
+    }
+
     setConfirmedOrders((prev) => [...prev, orderId]);
-    toast.success(`Đã xác nhận nhận hàng cho đơn ${orderId}!`);
+    toast.success(`Đã xác nhận nhận hàng cho đơn ${orderId}! Tồn kho đã được cập nhật.`);
   };
 
   return (

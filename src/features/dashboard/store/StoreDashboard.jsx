@@ -35,7 +35,9 @@ export default function StoreDashboard() {
   } = useData();
   const navigate = useNavigate();
   const stats = dashboardStats.store;
-  const lowStock = storeInventory.filter((i) => i.quantity <= i.minStock);
+  const lowStock = storeInventory.filter(
+    (i) => i.storeId === user.store && i.quantity <= i.minStock,
+  );
 
   return (
     <PageWrapper>
@@ -67,7 +69,7 @@ export default function StoreDashboard() {
         />
         <StatCard
           label="Sản phẩm thiếu hàng"
-          value={stats.lowStockItems}
+          value={lowStock.length}
           icon={Package}
           color="accent"
           trend="down"
