@@ -27,7 +27,12 @@ export default function ReceiveGoods() {
   );
 
   const handleConfirm = (orderId) => {
-    updateOrder(orderId, { status: "delivered" });
+    const orderFeedback = feedback[orderId] || {};
+    updateOrder(orderId, {
+      status: "delivered",
+      qualityRating: orderFeedback.rating || null,
+      qualityComment: orderFeedback.comment || null,
+    });
     setConfirmedOrders((prev) => [...prev, orderId]);
     toast.success(`Đã xác nhận nhận hàng cho đơn ${orderId}!`);
   };
@@ -211,14 +216,17 @@ export default function ReceiveGoods() {
                 <Badge variant="success" dot>
                   Đã xác nhận nhận hàng
                 </Badge>
-                {feedback[order.id]?.rating && (
+                {(order.qualityRating || feedback[order.id]?.rating) && (
                   <span style={{ display: "flex", gap: "2px" }}>
                     {[1, 2, 3, 4, 5].map((s) => (
                       <Star
                         key={s}
                         size={14}
                         fill={
-                          s <= feedback[order.id].rating ? "#E9C46A" : "none"
+                          s <=
+                          (order.qualityRating || feedback[order.id]?.rating)
+                            ? "#E9C46A"
+                            : "none"
                         }
                         color="#E9C46A"
                       />

@@ -123,15 +123,6 @@ function AppRoutes() {
           element={<ProtectedRoute allowedRoles={["supply_coordinator"]} />}
         >
           <Route path="/supply/dashboard" element={<SupplyDashboard />} />
-          <Route
-            path="/supply/orders"
-            element={
-              <KanbanBoard
-                title="Tổng hợp đơn hàng"
-                subtitle="Phân loại và điều phối đơn hàng từ các cửa hàng"
-              />
-            }
-          />
           <Route path="/supply/delivery" element={<DeliverySchedule />} />
           <Route path="/supply/issues" element={<IssueManagement />} />
         </Route>

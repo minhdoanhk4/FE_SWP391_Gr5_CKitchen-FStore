@@ -70,12 +70,6 @@ const NAV_CONFIG = {
       section: "Điều phối",
       items: [
         { to: "/supply/dashboard", icon: LayoutDashboard, label: "Tổng quan" },
-        {
-          to: "/supply/orders",
-          icon: ClipboardList,
-          label: "Tổng hợp đơn",
-          badge: 8,
-        },
         { to: "/supply/delivery", icon: Truck, label: "Giao hàng" },
         {
           to: "/supply/issues",

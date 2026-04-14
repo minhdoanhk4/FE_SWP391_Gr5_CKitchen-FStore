@@ -5,6 +5,7 @@
   overflow-x: auto;
   padding-bottom: var(--space-4);
   min-height: calc(100vh - 200px);
+  width: 100%;
 }
 
 .kanban-column {

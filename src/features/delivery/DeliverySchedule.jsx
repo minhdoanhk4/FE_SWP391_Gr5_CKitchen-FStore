@@ -1,19 +1,20 @@
 import { useState } from "react";
-import {
-  Truck,
-  Package,
-  MapPin,
-  Calendar,
-  ChevronRight,
-  CheckCircle,
-} from "lucide-react";
+import { Truck, Package, MapPin, Calendar } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
-import { Card, Badge, Button, Drawer } from "../../components/ui";
+import { Card, Badge, Button } from "../../components/ui";
 import { useData } from "../../contexts/DataContext";
 
 export default function DeliverySchedule() {
-  const { orders, updateOrder, STATUS_LABELS, STATUS_COLORS, formatCurrency, formatDate, formatDateTime } = useData();
+  const {
+    orders,
+    updateOrder,
+    STATUS_LABELS,
+    STATUS_COLORS,
+    formatCurrency,
+    formatDate,
+    formatDateTime,
+  } = useData();
   const [selectedOrder, setSelectedOrder] = useState(null);
 
   const readyOrders = orders.filter((o) => o.status === "ready");
@@ -23,12 +24,6 @@ export default function DeliverySchedule() {
     updateOrder(order.id, { status: "shipping" });
     setSelectedOrder(null);
     toast.success(`${order.id} đã chuyển sang trạng thái giao hàng`);
-  };
-
-  const handleMarkDelivered = (order) => {
-    updateOrder(order.id, { status: "delivered" });
-    setSelectedOrder(null);
-    toast.success(`${order.id} đã giao thành công`);
   };
 
   const progressWidth = (status) => {
@@ -347,7 +342,7 @@ export default function DeliverySchedule() {
                   alignItems: "center",
                 }}
               >
-                <div style={{ flex: 1, marginRight: "16px" }}>
+                <div style={{ flex: 1 }}>
                   <div
                     style={{
                       display: "flex",
@@ -383,15 +378,17 @@ export default function DeliverySchedule() {
                     />
                   </div>
                 </div>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  icon={CheckCircle}
-                  onClick={() => handleMarkDelivered(order)}
-                >
-                  Đã giao
-                </Button>
               </div>
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: "var(--text-muted)",
+                  fontStyle: "italic",
+                  marginTop: "8px",
+                }}
+              >
+                Chờ cửa hàng xác nhận nhận hàng
+              </p>
             </Card>
           ))}
           {shippingOrders.length === 0 && (

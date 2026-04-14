@@ -14,7 +14,14 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { MapPin, Calendar, User, FileText, ChevronRight, AlertTriangle } from "lucide-react";
+import {
+  MapPin,
+  Calendar,
+  User,
+  FileText,
+  ChevronRight,
+  AlertTriangle,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../../components/layout/PageWrapper/PageWrapper";
 import { Badge, Drawer, Modal, Button } from "../../../components/ui";
@@ -26,10 +33,9 @@ const COLUMNS = [
   { id: "confirmed", label: "Đã xác nhận" },
   { id: "producing", label: "Đang sản xuất" },
   { id: "ready", label: "Sẵn sàng giao" },
-  { id: "shipping", label: "Đang giao" },
 ];
 
-const STATUS_ORDER = ["pending", "confirmed", "producing", "ready", "shipping"];
+const STATUS_ORDER = ["pending", "confirmed", "producing", "ready"];
 
 function OrderCard({ order, isDragging, onClick, formatCurrency, formatDate }) {
   const handleClick = (e) => {
@@ -91,12 +97,27 @@ function SortableOrderCard({ order, onCardClick, formatCurrency, formatDate }) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <OrderCard order={order} isDragging={isDragging} onClick={onCardClick} formatCurrency={formatCurrency} formatDate={formatDate} />
+      <OrderCard
+        order={order}
+        isDragging={isDragging}
+        onClick={onCardClick}
+        formatCurrency={formatCurrency}
+        formatDate={formatDate}
+      />
     </div>
   );
 }
 
-function OrderDetailDrawer({ order, isOpen, onClose, STATUS_LABELS, STATUS_COLORS, formatCurrency, formatDate, formatDateTime }) {
+function OrderDetailDrawer({
+  order,
+  isOpen,
+  onClose,
+  STATUS_LABELS,
+  STATUS_COLORS,
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+}) {
   if (!order) return null;
 
   const currentStepIndex = STATUS_ORDER.indexOf(order.status);
@@ -217,10 +238,21 @@ export default function KanbanBoard({
   title = "Bảng quản lý đơn hàng",
   subtitle,
 }) {
-  const { orders, updateOrder, STATUS_LABELS, STATUS_COLORS, formatCurrency, formatDate, formatDateTime } = useData();
+  const {
+    orders,
+    updateOrder,
+    STATUS_LABELS,
+    STATUS_COLORS,
+    formatCurrency,
+    formatDate,
+    formatDateTime,
+  } = useData();
 
   const activeOrders = orders.filter(
-    (o) => o.status !== "delivered" && o.status !== "cancelled",
+    (o) =>
+      o.status !== "delivered" &&
+      o.status !== "cancelled" &&
+      o.status !== "shipping",
   );
 
   const [activeId, setActiveId] = useState(null);
@@ -270,6 +302,12 @@ export default function KanbanBoard({
     }
 
     if (targetStatus && activeOrder.status !== targetStatus) {
+      const fromIndex = STATUS_ORDER.indexOf(activeOrder.status);
+      const toIndex = STATUS_ORDER.indexOf(targetStatus);
+      if (toIndex !== fromIndex + 1) {
+        toast.error("Chỉ được chuyển sang bước tiếp theo");
+        return;
+      }
       setPendingChange({
         orderId: active.id,
         orderLabel: activeOrder.id,
@@ -289,7 +327,9 @@ export default function KanbanBoard({
     const toLabel = STATUS_LABELS[toStatus];
 
     updateOrder(orderId, { status: toStatus });
-    toast.success(`${orderLabel}: ${fromLabel} ➜ ${toLabel}`, { duration: 3000 });
+    toast.success(`${orderLabel}: ${fromLabel} ➜ ${toLabel}`, {
+      duration: 3000,
+    });
     setPendingChange(null);
   };
 
@@ -351,7 +391,14 @@ export default function KanbanBoard({
         </div>
 
         <DragOverlay>
-          {activeOrder ? <OrderCard order={activeOrder} isDragging formatCurrency={formatCurrency} formatDate={formatDate} /> : null}
+          {activeOrder ? (
+            <OrderCard
+              order={activeOrder}
+              isDragging
+              formatCurrency={formatCurrency}
+              formatDate={formatDate}
+            />
+          ) : null}
         </DragOverlay>
       </DndContext>
 
@@ -372,8 +419,12 @@ export default function KanbanBoard({
         title="Xác nhận chuyển trạng thái"
         footer={
           <div className="kanban-confirm__actions">
-            <Button variant="ghost" onClick={handleCancelChange}>Hủy</Button>
-            <Button variant="primary" onClick={handleConfirmChange}>Xác nhận</Button>
+            <Button variant="ghost" onClick={handleCancelChange}>
+              Hủy
+            </Button>
+            <Button variant="primary" onClick={handleConfirmChange}>
+              Xác nhận
+            </Button>
           </div>
         }
       >
@@ -383,7 +434,9 @@ export default function KanbanBoard({
               <AlertTriangle size={32} />
             </div>
             <p className="kanban-confirm__message">
-              Bạn có chắc chắn muốn chuyển đơn hàng <strong>{pendingChange.orderLabel}</strong> ({pendingChange.storeName})
+              Bạn có chắc chắn muốn chuyển đơn hàng{" "}
+              <strong>{pendingChange.orderLabel}</strong> (
+              {pendingChange.storeName})
             </p>
             <div className="kanban-confirm__status-flow">
               <Badge variant={STATUS_COLORS[pendingChange.fromStatus]} dot>

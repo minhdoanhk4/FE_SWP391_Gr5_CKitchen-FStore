@@ -76,11 +76,6 @@ export default function OrderDetail() {
 
   const currentStepIndex = STATUS_ORDER.indexOf(order.status);
 
-  const handleConfirm = () => {
-    updateOrder(order.id, { status: "confirmed" });
-    toast.success(`Đã xác nhận đơn hàng ${order.id}`);
-  };
-
   const handleCancel = () => {
     updateOrder(order.id, { status: "cancelled" });
     toast.success(`Đã hủy đơn hàng ${order.id}`);
@@ -216,9 +211,6 @@ export default function OrderDetail() {
       {/* Action buttons */}
       {order.status === "pending" && (
         <div style={{ display: "flex", gap: "12px", marginTop: "20px" }}>
-          <Button variant="primary" icon={CheckCircle} onClick={handleConfirm}>
-            Xác nhận đơn
-          </Button>
           <Button variant="danger" onClick={handleCancel}>
             Hủy đơn
           </Button>

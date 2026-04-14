@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Plus,
   ChefHat,
@@ -27,6 +27,9 @@ const STATUS_CONFIG = {
 export default function ProductionPlan() {
   const {
     products,
+    recipes,
+    ingredients: ingredientsList,
+    orders,
     productionPlans: plans,
     formatDateTime,
     addProductionPlan,
@@ -46,6 +49,54 @@ export default function ProductionPlan() {
     notes: "",
   });
   const [errors, setErrors] = useState({});
+
+  // Compute ingredients from recipe based on selected product + quantity
+  const computedIngredients = useMemo(() => {
+    if (!form.productId) return [];
+    const recipe = recipes.find((r) => r.productId === form.productId);
+    if (!recipe) return [];
+    const qty = parseInt(form.quantity) || 0;
+    return recipe.ingredients.map((ri) => {
+      const ing = ingredientsList.find((i) => i.id === ri.ingredientId);
+      const totalQty = Math.round(ri.quantity * qty * 100) / 100;
+      return {
+        name: ing?.name || ri.ingredientId,
+        qty: `${totalQty}${ri.unit}`,
+      };
+    });
+  }, [form.productId, form.quantity, recipes, ingredientsList]);
+
+  // Aggregate pending/confirmed order demand by product
+  const orderDemand = useMemo(() => {
+    const demandMap = {};
+    orders
+      .filter((o) => o.status === "pending" || o.status === "confirmed")
+      .forEach((order) => {
+        order.items.forEach((item) => {
+          if (!demandMap[item.productId]) {
+            demandMap[item.productId] = {
+              productName: item.productName,
+              totalQty: 0,
+              unit: item.unit,
+              orderCount: 0,
+              orderIds: new Set(),
+            };
+          }
+          demandMap[item.productId].totalQty += item.quantity;
+          if (!demandMap[item.productId].orderIds.has(order.id)) {
+            demandMap[item.productId].orderIds.add(order.id);
+            demandMap[item.productId].orderCount += 1;
+          }
+        });
+      });
+    return Object.entries(demandMap).map(([productId, d]) => ({
+      productId,
+      productName: d.productName,
+      totalQty: d.totalQty,
+      unit: d.unit,
+      orderCount: d.orderCount,
+    }));
+  }, [orders]);
 
   const filtered =
     filter === "all" ? plans : plans.filter((p) => p.status === filter);
@@ -111,7 +162,7 @@ export default function ProductionPlan() {
         endDate: null,
         staff: form.staff,
         notes: form.notes,
-        ingredients: [],
+        ingredients: computedIngredients,
       };
       addProductionPlan(newPlan);
     }
@@ -416,6 +467,58 @@ export default function ProductionPlan() {
         }
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          {/* Pending order demand summary */}
+          {orderDemand.length > 0 && (
+            <div
+              style={{
+                padding: "12px",
+                background: "var(--surface)",
+                borderRadius: "var(--radius-md)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <h4
+                style={{
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  marginBottom: "8px",
+                  color: "var(--text-secondary)",
+                }}
+              >
+                Nhu cầu hiện tại (đơn chờ xử lý + đã xác nhận)
+              </h4>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "4px",
+                  fontSize: "13px",
+                }}
+              >
+                {orderDemand.map((d) => (
+                  <div
+                    key={d.productId}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      padding: "4px 8px",
+                      borderRadius: "var(--radius-sm)",
+                      background:
+                        d.productId === form.productId
+                          ? "var(--primary-bg)"
+                          : "transparent",
+                    }}
+                  >
+                    <span>{d.productName}</span>
+                    <span className="font-mono" style={{ fontWeight: 600 }}>
+                      {d.totalQty} {d.unit} ({d.orderCount} đơn)
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <Select
             label="Sản phẩm"
             required
@@ -471,6 +574,55 @@ export default function ProductionPlan() {
             value={form.notes}
             onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
           />
+
+          {/* Ingredient preview from recipe */}
+          {computedIngredients.length > 0 && (
+            <div
+              style={{
+                padding: "12px",
+                background: "var(--surface)",
+                borderRadius: "var(--radius-md)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <h4
+                style={{
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  marginBottom: "8px",
+                  color: "var(--text-secondary)",
+                }}
+              >
+                Nguyên liệu cần dùng (tự động từ công thức)
+              </h4>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "4px",
+                }}
+              >
+                {computedIngredients.map((ing, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      padding: "4px 8px",
+                      fontSize: "13px",
+                      background: "var(--surface-hover)",
+                      borderRadius: "var(--radius-sm)",
+                    }}
+                  >
+                    <span>{ing.name}</span>
+                    <span className="font-mono" style={{ fontWeight: 600 }}>
+                      {ing.qty}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </Modal>
     </PageWrapper>
