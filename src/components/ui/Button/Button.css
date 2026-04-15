@@ -71,13 +71,23 @@
   color: var(--text-primary);
 }
 
+.btn--warning {
+  background: var(--warning);
+  color: var(--text-inverse);
+  border-color: var(--warning);
+}
+.btn--warning:hover:not(:disabled) {
+  background: #b45309;
+  box-shadow: 0 0 20px rgba(217, 119, 6, 0.25);
+}
+
 .btn--danger {
   background: var(--danger);
   color: var(--text-inverse);
   border-color: var(--danger);
 }
 .btn--danger:hover:not(:disabled) {
-  background: #B91C1C;
+  background: #b91c1c;
   box-shadow: 0 0 20px rgba(220, 38, 38, 0.25);
 }
 

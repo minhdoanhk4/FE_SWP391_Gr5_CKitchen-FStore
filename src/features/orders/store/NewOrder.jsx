@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Minus, ShoppingCart, Trash2 } from "lucide-react";
 import PageWrapper from "../../../components/layout/PageWrapper/PageWrapper";
 import { Button, Card, Badge } from "../../../components/ui";
-import { Input, Textarea } from "../../../components/ui";
+import { Input, Textarea, Select } from "../../../components/ui";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useData } from "../../../contexts/DataContext";
 import toast from "react-hot-toast";
@@ -15,6 +15,7 @@ export default function NewOrder() {
   const { products, stores, orders, addOrder, formatCurrency } = useData();
   const [cart, setCart] = useState([]);
   const [notes, setNotes] = useState("");
+  const [priority, setPriority] = useState("normal");
   const [requestedDate, setRequestedDate] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [errors, setErrors] = useState({});
@@ -84,7 +85,7 @@ export default function NewOrder() {
       storeName: store?.name || user.store,
       kitchenId: "BT001",
       status: "pending",
-      priority: "normal",
+      priority,
       createdAt: new Date().toISOString(),
       requestedDate,
       notes,
@@ -230,7 +231,7 @@ export default function NewOrder() {
                   color: "var(--text-muted)",
                   fontSize: "14px",
                   textAlign: "center",
-                  padding: "32px 0",
+                  padding: "16px 0",
                 }}
               >
                 Chọn sản phẩm bên trái để thêm vào giỏ
@@ -293,13 +294,26 @@ export default function NewOrder() {
                 required
                 error={errors.requestedDate}
               />
-              <Textarea
-                label="Ghi chú"
-                placeholder="Ghi chú cho bếp trung tâm..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                style={{ marginTop: "12px" }}
-              />
+              <div style={{ marginTop: "12px" }}>
+                <Select
+                  label="Mức độ ưu tiên"
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value)}
+                  options={[
+                    { value: "low", label: "Thấp" },
+                    { value: "normal", label: "Bình thường" },
+                    { value: "high", label: "Cao (Gấp)" },
+                  ]}
+                />
+              </div>
+              <div style={{ marginTop: "12px" }}>
+                <Textarea
+                  label="Ghi chú"
+                  placeholder="Ghi chú cho bếp trung tâm..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+              </div>
             </div>
 
             <div
