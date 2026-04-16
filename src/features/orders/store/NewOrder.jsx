@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Minus, ShoppingCart, Trash2 } from "lucide-react";
 import PageWrapper from "../../../components/layout/PageWrapper/PageWrapper";
@@ -16,6 +16,13 @@ export default function NewOrder() {
   const [cart, setCart] = useState([]);
   const [notes, setNotes] = useState("");
   const [requestedDate, setRequestedDate] = useState("");
+  const priority = useMemo(() => {
+    if (!requestedDate) return "normal";
+    const diffHours = (new Date(requestedDate) - new Date()) / (1000 * 60 * 60);
+    if (diffHours <= 12) return "high";
+    if (diffHours >= 7 * 24) return "low";
+    return "normal";
+  }, [requestedDate]);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [errors, setErrors] = useState({});
 
@@ -84,7 +91,7 @@ export default function NewOrder() {
       storeName: store?.name || user.store,
       kitchenId: "BT001",
       status: "pending",
-      priority: "normal",
+      priority,
       createdAt: new Date().toISOString(),
       requestedDate,
       notes,
@@ -93,6 +100,7 @@ export default function NewOrder() {
         productName: item.productName,
         quantity: item.quantity,
         unit: item.unit,
+        unitPrice: item.price,
       })),
       createdBy: user.name,
       total,
@@ -230,7 +238,7 @@ export default function NewOrder() {
                   color: "var(--text-muted)",
                   fontSize: "14px",
                   textAlign: "center",
-                  padding: "32px 0",
+                  padding: "16px 0",
                 }}
               >
                 Chọn sản phẩm bên trái để thêm vào giỏ
@@ -293,13 +301,24 @@ export default function NewOrder() {
                 required
                 error={errors.requestedDate}
               />
-              <Textarea
-                label="Ghi chú"
-                placeholder="Ghi chú cho bếp trung tâm..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                style={{ marginTop: "12px" }}
-              />
+              {requestedDate && (
+                <div style={{ marginTop: "12px" }}>
+                  <p style={{ fontSize: "var(--text-sm)", fontWeight: "var(--font-medium)", color: "var(--text-primary)", marginBottom: "6px" }}>
+                    Mức độ ưu tiên (tự động)
+                  </p>
+                  <Badge variant={priority === "high" ? "danger" : priority === "low" ? "neutral" : "info"}>
+                    {priority === "high" ? "Gấp" : priority === "low" ? "Thấp" : "Bình thường"}
+                  </Badge>
+                </div>
+              )}
+              <div style={{ marginTop: "12px" }}>
+                <Textarea
+                  label="Ghi chú"
+                  placeholder="Ghi chú cho bếp trung tâm..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+              </div>
             </div>
 
             <div

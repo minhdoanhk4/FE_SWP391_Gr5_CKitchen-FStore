@@ -38,6 +38,7 @@ export default function OrderDetail() {
   const navigate = useNavigate();
   const {
     orders,
+    products,
     updateOrder,
     STATUS_LABELS,
     STATUS_COLORS,
@@ -185,21 +186,47 @@ export default function OrderDetail() {
           <div className="order-detail__items">
             <div className="order-detail__items-header">
               <span>Sản phẩm</span>
-              <span>Số lượng</span>
+              <span style={{ textAlign: "right" }}>Đơn giá</span>
+              <span style={{ textAlign: "right" }}>Số lượng</span>
+              <span style={{ textAlign: "right" }}>Thành tiền</span>
             </div>
-            {order.items.map((item, i) => (
-              <div key={i} className="order-detail__item-row">
-                <div>
-                  <p className="order-detail__item-name">{item.productName}</p>
-                  <p className="order-detail__item-id font-mono">
-                    {item.productId}
-                  </p>
+            {order.items.map((item, i) => {
+              const unitPrice =
+                item.unitPrice ??
+                products.find((p) => p.id === item.productId)?.price ??
+                0;
+              const subtotal = unitPrice * item.quantity;
+              return (
+                <div key={i} className="order-detail__item-row">
+                  <div>
+                    <p className="order-detail__item-name">
+                      {item.productName}
+                    </p>
+                    <p className="order-detail__item-id font-mono">
+                      {item.productId}
+                    </p>
+                  </div>
+                  <span
+                    className="order-detail__item-qty font-mono"
+                    style={{ textAlign: "right" }}
+                  >
+                    {formatCurrency(unitPrice)}
+                  </span>
+                  <span
+                    className="order-detail__item-qty font-mono"
+                    style={{ textAlign: "right" }}
+                  >
+                    {item.quantity} {item.unit}
+                  </span>
+                  <span
+                    className="order-detail__item-qty font-mono"
+                    style={{ textAlign: "right" }}
+                  >
+                    {formatCurrency(subtotal)}
+                  </span>
                 </div>
-                <span className="order-detail__item-qty font-mono">
-                  {item.quantity} {item.unit}
-                </span>
-              </div>
-            ))}
+              );
+            })}
             <div className="order-detail__items-total">
               <span>Tổng cộng</span>
               <span className="font-mono">{formatCurrency(order.total)}</span>
