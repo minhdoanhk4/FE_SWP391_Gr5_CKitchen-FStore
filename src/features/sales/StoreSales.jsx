@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useState, useMemo, useRef } from "react";
+import { Plus, Trash2, Download, Upload } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { DataTable, Badge, Button, Modal, Card } from "../../components/ui";
@@ -27,6 +27,10 @@ export default function StoreSales() {
     new Date().toISOString().split("T")[0],
   );
   const [errors, setErrors] = useState({});
+
+  const fileInputRef = useRef(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importPreview, setImportPreview] = useState([]);
 
   // Filter sales for this store
   const storeSales = salesRecords.filter((s) => s.storeId === user.store);
@@ -144,6 +148,130 @@ export default function StoreSales() {
     setSaleItems([{ productId: "", quantity: "" }]);
   };
 
+  const handleDownloadTemplate = () => {
+    const header = "Ngay ban,Ma san pham,Ten san pham,So luong";
+    const today = new Date().toISOString().split("T")[0];
+    const rows = storeProducts.map(
+      (p) => `${today},${p.value},"${p.label.split(" (")[0]}",0`,
+    );
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `mau_ghi_nhan_ban_hang_${today}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportClick = () => fileInputRef.current?.click();
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target.result.replace(/^\uFEFF/, "");
+      const lines = text.split(/\r?\n/).filter((l) => l.trim());
+      if (lines.length < 2) {
+        toast.error("File không có dữ liệu");
+        return;
+      }
+      const parsed = lines.slice(1).map((line, idx) => {
+        // Handle quoted fields
+        const cols = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|^(?=,)|(?<=,)$)/g) || [];
+        const clean = cols.map((c) => c.replace(/^"|"$/g, "").trim());
+        const [date, productId, , qty] = clean;
+        const prod = storeProducts.find(
+          (p) =>
+            p.value === productId ||
+            p.label.split(" (")[0].toLowerCase() === (productId || "").toLowerCase(),
+        );
+        const quantity = parseInt(qty);
+        let error = null;
+        if (!date) error = "Thiếu ngày bán";
+        else if (!prod) error = `Không tìm thấy sản phẩm "${productId}"`;
+        else if (!quantity || quantity <= 0) error = "Số lượng không hợp lệ";
+        else if (quantity > prod.stock) error = `Vượt tồn kho (còn ${prod.stock})`;
+        return {
+          rowNum: idx + 2,
+          date,
+          productId: prod?.value || productId,
+          productName: prod?.label.split(" (")[0] || productId,
+          quantity: isNaN(quantity) ? 0 : quantity,
+          unitPrice: prod?.price || 0,
+          unit: prod?.unit || "",
+          stock: prod?.stock || 0,
+          error,
+        };
+      });
+      setImportPreview(parsed);
+      setShowImportModal(true);
+    };
+    reader.readAsText(file, "UTF-8");
+  };
+
+  const handleImportConfirm = () => {
+    const validRows = importPreview.filter((r) => !r.error && r.quantity > 0);
+    if (validRows.length === 0) {
+      toast.error("Không có dòng hợp lệ để nhập");
+      return;
+    }
+
+    // Group by date
+    const byDate = {};
+    validRows.forEach((r) => {
+      if (!byDate[r.date]) byDate[r.date] = [];
+      byDate[r.date].push(r);
+    });
+
+    let totalRev = 0;
+    Object.entries(byDate).forEach(([date, items]) => {
+      const saleId = `SR${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 100)}`;
+      const revenue = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+      totalRev += revenue;
+      addSale({
+        id: saleId,
+        storeId: user.store,
+        date,
+        items: items.map((i) => ({
+          productId: i.productId,
+          productName: i.productName,
+          quantity: i.quantity,
+          unit: i.unit,
+          unitPrice: i.unitPrice,
+        })),
+        totalRevenue: revenue,
+        recordedBy: user.name,
+        recordedAt: new Date().toISOString(),
+      });
+
+      items.forEach((item) => {
+        const inv = storeInventory.find(
+          (i) => i.storeId === user.store && i.productId === item.productId,
+        );
+        if (inv) {
+          updateStoreInventory(inv.id, {
+            quantity: Math.max(0, inv.quantity - item.quantity),
+          });
+        }
+      });
+    });
+
+    addAuditLog(
+      "sale_recorded",
+      user.name,
+      `Import ${validRows.length} dòng, doanh thu ${formatCurrency(totalRev)}`,
+      "sales",
+    );
+
+    toast.success(`Đã nhập ${validRows.length} dòng — ${formatCurrency(totalRev)}`);
+    setShowImportModal(false);
+    setImportPreview([]);
+  };
+
   const columns = [
     {
       header: "Mã",
@@ -208,9 +336,24 @@ export default function StoreSales() {
       title="Ghi nhận bán hàng"
       subtitle="Cập nhật doanh thu bán hàng hàng ngày"
       actions={
-        <Button icon={Plus} onClick={() => setShowModal(true)}>
-          Ghi nhận bán hàng
-        </Button>
+        <>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            style={{ display: "none" }}
+            onChange={handleFileChange}
+          />
+          <Button variant="secondary" icon={Download} onClick={handleDownloadTemplate}>
+            Tải mẫu Excel
+          </Button>
+          <Button variant="secondary" icon={Upload} onClick={handleImportClick}>
+            Import Excel
+          </Button>
+          <Button icon={Plus} onClick={() => setShowModal(true)}>
+            Ghi nhận bán hàng
+          </Button>
+        </>
       }
     >
       <div
@@ -363,6 +506,58 @@ export default function StoreSales() {
               </strong>
             </div>
           )}
+        </div>
+      </Modal>
+
+      {/* Import preview modal */}
+      <Modal
+        isOpen={showImportModal}
+        onClose={() => { setShowImportModal(false); setImportPreview([]); }}
+        title="Xem trước dữ liệu import"
+        size="lg"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setShowImportModal(false); setImportPreview([]); }}>
+              Hủy
+            </Button>
+            <Button
+              onClick={handleImportConfirm}
+              disabled={importPreview.every((r) => r.error)}
+            >
+              Nhập {importPreview.filter((r) => !r.error).length} dòng hợp lệ
+            </Button>
+          </>
+        }
+      >
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+            <thead>
+              <tr style={{ background: "var(--surface-hover)" }}>
+                {["Dòng", "Ngày bán", "Sản phẩm", "Số lượng", "Trạng thái"].map((h) => (
+                  <th key={h} style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {importPreview.map((row) => (
+                <tr
+                  key={row.rowNum}
+                  style={{ borderTop: "1px solid var(--surface-border)", background: row.error ? "rgba(var(--danger-rgb,220,53,69),0.05)" : undefined }}
+                >
+                  <td style={{ padding: "6px 10px", color: "var(--text-muted)" }}>{row.rowNum}</td>
+                  <td style={{ padding: "6px 10px" }}>{row.date || "—"}</td>
+                  <td style={{ padding: "6px 10px" }}>{row.productName}</td>
+                  <td style={{ padding: "6px 10px" }}>{row.quantity}</td>
+                  <td style={{ padding: "6px 10px" }}>
+                    {row.error
+                      ? <span style={{ color: "var(--danger)", fontSize: "12px" }}>{row.error}</span>
+                      : <span style={{ color: "var(--success)", fontSize: "12px" }}>Hợp lệ</span>
+                    }
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Modal>
     </PageWrapper>
