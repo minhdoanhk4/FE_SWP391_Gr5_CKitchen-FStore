@@ -47,9 +47,10 @@ const initialState = {
   productionPlans: [...mockProductionPlans],
   auditLogs: [...mockAuditLogs],
   salesRecords: [...mockSalesRecords],
+  cart: [],
   systemConfig: {
-    systemName: "CKitchen Franchise Manager",
-    email: "support@ckitchen.vn",
+    systemName: "Kizuna Restaurant",
+    email: "support@kizuna.vn",
     timezone: "UTC+7",
     currency: "VND",
     massUnit: "kg",
@@ -67,6 +68,50 @@ const initialState = {
 
 function dataReducer(state, action) {
   switch (action.type) {
+    // Cart
+    case "ADD_TO_CART": {
+      const existing = state.cart.find((item) => item.productId === action.payload.id);
+      if (existing) {
+        return {
+          ...state,
+          cart: state.cart.map((item) =>
+            item.productId === action.payload.id
+              ? { ...item, quantity: item.quantity + 1 }
+              : item
+          ),
+        };
+      }
+      return {
+        ...state,
+        cart: [
+          ...state.cart,
+          {
+            productId: action.payload.id,
+            productName: action.payload.name,
+            quantity: 1,
+            unit: action.payload.unit,
+            price: action.payload.price,
+          },
+        ],
+      };
+    }
+    case "REMOVE_FROM_CART":
+      return {
+        ...state,
+        cart: state.cart.filter((item) => item.productId !== action.payload),
+      };
+    case "UPDATE_CART_QTY":
+      return {
+        ...state,
+        cart: state.cart.map((item) =>
+          item.productId === action.payload.id
+            ? { ...item, quantity: Math.max(1, action.payload.quantity) }
+            : item
+        ),
+      };
+    case "CLEAR_CART":
+      return { ...state, cart: [] };
+
     // Orders
     case "ADD_ORDER":
       return { ...state, orders: [...state.orders, action.payload] };
@@ -268,6 +313,23 @@ export function DataProvider({ children }) {
     [state.auditLogs.length],
   );
 
+  // Cart
+  const addToCart = useCallback((product) => {
+    dispatch({ type: "ADD_TO_CART", payload: product });
+  }, []);
+
+  const removeFromCart = useCallback((productId) => {
+    dispatch({ type: "REMOVE_FROM_CART", payload: productId });
+  }, []);
+
+  const updateCartQty = useCallback((id, quantity) => {
+    dispatch({ type: "UPDATE_CART_QTY", payload: { id, quantity } });
+  }, []);
+
+  const clearCart = useCallback(() => {
+    dispatch({ type: "CLEAR_CART" });
+  }, []);
+
   // Orders
   const addOrder = useCallback((order) => {
     dispatch({ type: "ADD_ORDER", payload: order });
@@ -397,6 +459,10 @@ export function DataProvider({ children }) {
     ...state,
 
     // CRUD functions
+    addToCart,
+    removeFromCart,
+    updateCartQty,
+    clearCart,
     addOrder,
     updateOrder,
     deleteOrder,

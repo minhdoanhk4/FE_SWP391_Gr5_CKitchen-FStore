@@ -44,6 +44,7 @@ import IssueManagement from "./features/issues/IssueManagement";
 // Manager features
 import ProductCatalog from "./features/products/ProductCatalog";
 import ManagerInventory from "./features/inventory/manager/ManagerInventory";
+import RecipeManagement from "./features/recipes/RecipeManagement";
 import Reports from "./features/reports/Reports";
 
 // Admin features
@@ -59,7 +60,9 @@ function ProtectedRoute({ children, allowedRoles }) {
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (allowedRoles && !allowedRoles.includes(user?.role)) {
     const roleInfo = ROLE_INFO[user?.role];
-    return <Navigate to={`${roleInfo?.path || ""}/dashboard`} replace />;
+    // Unknown/invalid role — send to login to re-authenticate
+    if (!roleInfo) return <Navigate to="/login" replace />;
+    return <Navigate to={`${roleInfo.path}/dashboard`} replace />;
   }
   return children || <Outlet />;
 }
@@ -73,11 +76,8 @@ function AppRoutes() {
       <Route
         path="/login"
         element={
-          isAuthenticated ? (
-            <Navigate
-              to={`/${user?.role === "store_staff" ? "store" : user?.role === "kitchen_staff" ? "kitchen" : user?.role === "supply_coordinator" ? "supply" : user?.role === "manager" ? "manager" : "admin"}/dashboard`}
-              replace
-            />
+          isAuthenticated && ROLE_INFO[user?.role] ? (
+            <Navigate to={`${ROLE_INFO[user.role].path}/dashboard`} replace />
           ) : (
             <LoginPage />
           )
@@ -93,7 +93,7 @@ function AppRoutes() {
         }
       >
         {/* Store Staff */}
-        <Route element={<ProtectedRoute allowedRoles={["store_staff"]} />}>
+        <Route element={<ProtectedRoute allowedRoles={["FRANCHISE_STORE_STAFF"]} />}>
           <Route path="/store/dashboard" element={<StoreDashboard />} />
           <Route path="/store/orders" element={<StoreOrders />} />
           <Route path="/store/orders/new" element={<NewOrder />} />
@@ -104,7 +104,7 @@ function AppRoutes() {
         </Route>
 
         {/* Kitchen Staff */}
-        <Route element={<ProtectedRoute allowedRoles={["kitchen_staff"]} />}>
+        <Route element={<ProtectedRoute allowedRoles={["KITCHEN_STAFF"]} />}>
           <Route path="/kitchen/dashboard" element={<KitchenDashboard />} />
           <Route
             path="/kitchen/orders"
@@ -122,7 +122,7 @@ function AppRoutes() {
 
         {/* Supply Coordinator */}
         <Route
-          element={<ProtectedRoute allowedRoles={["supply_coordinator"]} />}
+          element={<ProtectedRoute allowedRoles={["SUPPLY_COORDINATOR"]} />}
         >
           <Route path="/supply/dashboard" element={<SupplyDashboard />} />
           <Route path="/supply/delivery" element={<DeliverySchedule />} />
@@ -130,9 +130,10 @@ function AppRoutes() {
         </Route>
 
         {/* Manager */}
-        <Route element={<ProtectedRoute allowedRoles={["manager"]} />}>
+        <Route element={<ProtectedRoute allowedRoles={["MANAGER"]} />}>
           <Route path="/manager/dashboard" element={<ManagerDashboard />} />
           <Route path="/manager/products" element={<ProductCatalog />} />
+          <Route path="/manager/recipes" element={<RecipeManagement />} />
           <Route path="/manager/inventory" element={<ManagerInventory />} />
           <Route path="/manager/reports" element={<Reports />} />
           <Route
@@ -147,7 +148,7 @@ function AppRoutes() {
         </Route>
 
         {/* Admin */}
-        <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/users" element={<UserManagement />} />
           <Route path="/admin/stores" element={<StoreManagement />} />

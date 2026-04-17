@@ -193,6 +193,14 @@ export default function Header() {
           )}
         </div>
 
+        {/* Cart Icon — Only for Store Staff */}
+        {user?.role === 'STORE_STAFF' && (
+          <Link to="/store/orders/new" className="app-header__icon-btn" aria-label="Giỏ hàng">
+            <ShoppingCart size={20} />
+            {cart.length > 0 && <span className="app-header__notif-dot">{cart.length}</span>}
+          </Link>
+        )}
+
         {/* Notification Bell */}
         <div className="notif-wrapper" ref={notifRef}>
           <button className="app-header__icon-btn" onClick={() => setNotifOpen(!notifOpen)} aria-label={`Thông báo${unreadCount > 0 ? `, ${unreadCount} chưa đọc` : ''}`}>

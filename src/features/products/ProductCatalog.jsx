@@ -1,21 +1,11 @@
-import { useState } from "react";
-import { Plus, Edit, Trash2, Eye } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Plus, Edit, Trash2, Eye, Upload } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
-import { DataTable, Badge, Button, Modal, Card } from "../../components/ui";
+import { DataTable, Badge, Button, Modal } from "../../components/ui";
 import { Input, Select } from "../../components/ui";
-import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
-
-const CATEGORY_OPTIONS = [
-  { value: "Phở", label: "Phở" },
-  { value: "Bún", label: "Bún" },
-  { value: "Cơm", label: "Cơm" },
-  { value: "Bánh mì", label: "Bánh mì" },
-  { value: "Khai vị", label: "Khai vị" },
-  { value: "Gia vị", label: "Gia vị" },
-  { value: "Bán thành phẩm", label: "Bán thành phẩm" },
-];
+import managerService from "../../services/managerService";
 
 const UNIT_OPTIONS = [
   { value: "phần", label: "Phần" },
@@ -24,34 +14,88 @@ const UNIT_OPTIONS = [
   { value: "kg", label: "Kg" },
 ];
 
+const EMPTY_FORM = {
+  name: "",
+  category: "",
+  unit: "phần",
+  price: "",
+  cost: "",
+};
+
 export default function ProductCatalog() {
-  const { user } = useAuth();
-  const {
-    products,
-    ingredients,
-    recipes,
-    formatCurrency,
-    addProduct,
-    updateProduct,
-    deleteProduct,
-    addRecipe,
-    updateRecipe,
-    addAuditLog,
-  } = useData();
+  const { ingredients, formatCurrency } = useData();
+
+  const [products, setProducts] = useState([]);
+  const [recipes, setRecipes] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const [showModal, setShowModal] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
   const [viewProduct, setViewProduct] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [showRecipeModal, setShowRecipeModal] = useState(null);
   const [recipeItems, setRecipeItems] = useState([]);
-  const [form, setForm] = useState({
-    name: "",
-    category: "",
-    unit: "phần",
-    price: "",
-    cost: "",
-  });
+  const [saving, setSaving] = useState(false);
+
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [imageFiles, setImageFiles] = useState(null);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [errors, setErrors] = useState({});
+  const fileInputRef = useRef(null);
+
+  const setImages = (files) => {
+    if (!files || files.length === 0) {
+      setImagePreviews((prev) => { prev.forEach(URL.revokeObjectURL); return []; });
+      setImageFiles(null);
+      return;
+    }
+    const incoming = Array.from(files);
+    const dt = new DataTransfer();
+    Array.from(imageFiles ?? []).forEach((f) => dt.items.add(f));
+    incoming.forEach((f) => dt.items.add(f));
+    setImageFiles(dt.files);
+    setImagePreviews((prev) => [...prev, ...incoming.map(URL.createObjectURL)]);
+  };
+
+  // Load products, recipes, categories on mount
+  useEffect(() => {
+    let mounted = true;
+    Promise.all([
+      managerService.products.getAll({ size: 200 }),
+      managerService.recipes.getAll({ size: 200 }),
+      managerService.products.getCategories(),
+    ])
+      .then(([prod, rec, cats]) => {
+        if (!mounted) return;
+        setProducts(Array.isArray(prod) ? prod : (prod?.content ?? []));
+        setRecipes(Array.isArray(rec) ? rec : (rec?.content ?? []));
+        setCategories(
+          Array.isArray(cats)
+            ? cats.map((c) =>
+                typeof c === "string"
+                  ? { value: c, label: c }
+                  : { value: c.name ?? c.id, label: c.name ?? c.id },
+              )
+            : [],
+        );
+      })
+      .catch(() => { if (mounted) toast.error("Không thể tải dữ liệu sản phẩm"); })
+      .finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, []);
+
+  const categoryOptions = categories.length
+    ? categories
+    : [
+        { value: "Phở", label: "Phở" },
+        { value: "Bún", label: "Bún" },
+        { value: "Cơm", label: "Cơm" },
+        { value: "Bánh mì", label: "Bánh mì" },
+        { value: "Khai vị", label: "Khai vị" },
+        { value: "Gia vị", label: "Gia vị" },
+        { value: "Bán thành phẩm", label: "Bán thành phẩm" },
+      ];
 
   const ingredientOptions = ingredients.map((i) => ({
     value: i.id,
@@ -60,7 +104,8 @@ export default function ProductCatalog() {
 
   const handleOpenNew = () => {
     setEditProduct(null);
-    setForm({ name: "", category: "", unit: "phần", price: "", cost: "" });
+    setForm(EMPTY_FORM);
+    setImages(null);
     setErrors({});
     setShowModal(true);
   };
@@ -71,15 +116,12 @@ export default function ProductCatalog() {
       name: product.name,
       category: product.category,
       unit: product.unit,
-      price: product.price.toString(),
-      cost: product.cost.toString(),
+      price: product.price?.toString() ?? "",
+      cost: product.cost?.toString() ?? "",
     });
+    setImages(null);
     setErrors({});
     setShowModal(true);
-  };
-
-  const handleView = (product) => {
-    setViewProduct(product);
   };
 
   const validate = () => {
@@ -92,58 +134,71 @@ export default function ProductCatalog() {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return;
-    if (editProduct) {
-      updateProduct(editProduct.id, {
+    setSaving(true);
+    try {
+      const fields = {
         name: form.name,
         category: form.category,
         unit: form.unit,
         price: parseInt(form.price) || 0,
         cost: parseInt(form.cost) || 0,
-      });
-      addAuditLog("product_updated", user.name, `Cập nhật sản phẩm ${form.name}`, "products");
-      toast.success(`Đã cập nhật sản phẩm ${form.name}`);
-    } else {
-      const maxNum = products.reduce((max, p) => {
-        const num = parseInt(p.id.replace("SP", ""));
-        return num > max ? num : max;
-      }, 0);
-      addProduct({
-        id: `SP${String(maxNum + 1).padStart(3, "0")}`,
-        name: form.name,
-        category: form.category,
-        unit: form.unit,
-        price: parseInt(form.price) || 0,
-        cost: parseInt(form.cost) || 0,
-        image: null,
-      });
-      addAuditLog("product_created", user.name, `Tạo sản phẩm ${form.name}`, "products");
-      toast.success(`Đã tạo sản phẩm ${form.name}`);
+        ...(imageFiles && imageFiles.length > 0 ? { images: imageFiles } : {}),
+      };
+      if (editProduct) {
+        const updated = await managerService.products.update(
+          editProduct.id,
+          fields,
+        );
+        setProducts((prev) =>
+          prev.map((p) =>
+            p.id === editProduct.id ? (updated ?? { ...p, ...fields }) : p,
+          ),
+        );
+        toast.success(`Đã cập nhật sản phẩm ${form.name}`);
+      } else {
+        const created = await managerService.products.create(fields);
+        setProducts((prev) => [...prev, created]);
+        toast.success(`Đã tạo sản phẩm ${form.name}`);
+      }
+      setShowModal(false);
+    } catch {
+      toast.error("Lưu sản phẩm thất bại");
+    } finally {
+      setSaving(false);
     }
-    setShowModal(false);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!confirmDelete) return;
-    deleteProduct(confirmDelete.id);
-    addAuditLog("product_deleted", user.name, `Xóa sản phẩm ${confirmDelete.name}`, "products");
-    toast.success(`Đã xóa sản phẩm ${confirmDelete.name}`);
-    setConfirmDelete(null);
+    setSaving(true);
+    try {
+      await managerService.products.delete(confirmDelete.id);
+      setProducts((prev) => prev.filter((p) => p.id !== confirmDelete.id));
+      toast.success(`Đã xóa sản phẩm ${confirmDelete.name}`);
+      setConfirmDelete(null);
+    } catch {
+      toast.error("Xóa sản phẩm thất bại");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // Recipe CRUD
   const handleOpenRecipe = (product) => {
-    const existing = recipes.find((r) => r.productId === product.id);
+    const existing = recipes.find(
+      (r) =>
+        r.productId === product.id || r.productId === product.id?.toString(),
+    );
     setRecipeItems(
-      existing
+      existing?.ingredients?.length
         ? existing.ingredients.map((i) => ({ ...i }))
         : [{ ingredientId: "", quantity: "", unit: "kg" }],
     );
     setShowRecipeModal(product);
   };
 
-  const handleSaveRecipe = () => {
+  const handleSaveRecipe = async () => {
     const validItems = recipeItems.filter(
       (i) => i.ingredientId && parseFloat(i.quantity) > 0,
     );
@@ -151,27 +206,68 @@ export default function ProductCatalog() {
       toast.error("Vui lòng thêm ít nhất 1 nguyên liệu");
       return;
     }
-    const existing = recipes.find((r) => r.productId === showRecipeModal.id);
-    if (existing) {
-      updateRecipe(showRecipeModal.id, { ingredients: validItems });
-    } else {
-      addRecipe({ productId: showRecipeModal.id, ingredients: validItems });
+    setSaving(true);
+    try {
+      const existing = recipes.find(
+        (r) =>
+          r.productId === showRecipeModal.id ||
+          r.productId === showRecipeModal.id?.toString(),
+      );
+      const payload = {
+        productId: showRecipeModal.id,
+        ingredients: validItems,
+      };
+      if (existing) {
+        const updated = await managerService.recipes.update(
+          existing.id,
+          payload,
+        );
+        setRecipes((prev) =>
+          prev.map((r) =>
+            r.id === existing.id ? (updated ?? { ...r, ...payload }) : r,
+          ),
+        );
+      } else {
+        const created = await managerService.recipes.create(payload);
+        setRecipes((prev) => [...prev, created]);
+      }
+      toast.success(`Đã lưu công thức cho ${showRecipeModal.name}`);
+      setShowRecipeModal(null);
+    } catch {
+      toast.error("Lưu công thức thất bại");
+    } finally {
+      setSaving(false);
     }
-    addAuditLog(
-      "recipe_updated",
-      user.name,
-      `Cập nhật công thức ${showRecipeModal.name} (${validItems.length} NL)`,
-      "products",
-    );
-    toast.success(`Đã lưu công thức cho ${showRecipeModal.name}`);
-    setShowRecipeModal(null);
   };
 
   const recipe = viewProduct
-    ? recipes.find((r) => r.productId === viewProduct.id)
+    ? recipes.find(
+        (r) =>
+          r.productId === viewProduct.id ||
+          r.productId === viewProduct.id?.toString(),
+      )
     : null;
 
   const columns = [
+    {
+      header: "",
+      width: "48px",
+      render: (r) =>
+        r.imageUrl?.[0] ? (
+          <img
+            src={r.imageUrl[0]}
+            alt={r.name}
+            style={{ width: 36, height: 36, objectFit: "cover", borderRadius: "var(--radius-sm)" }}
+          />
+        ) : (
+          <div style={{
+            width: 36, height: 36, borderRadius: "var(--radius-sm)",
+            background: "var(--surface-hover)", display: "flex",
+            alignItems: "center", justifyContent: "center",
+            fontSize: "16px", color: "var(--text-muted)",
+          }}>🍽</div>
+        ),
+    },
     {
       header: "Mã SP",
       accessor: "id",
@@ -208,12 +304,9 @@ export default function ProductCatalog() {
     },
     {
       header: "Lợi nhuận",
-      accessor: "profit",
       render: (r) => {
         const profit =
-          r.price > 0
-            ? (((r.price - r.cost) / r.price) * 100).toFixed(0)
-            : "0";
+          r.price > 0 ? (((r.price - r.cost) / r.price) * 100).toFixed(0) : "0";
         return (
           <Badge variant={profit > 50 ? "success" : "warning"}>{profit}%</Badge>
         );
@@ -222,7 +315,9 @@ export default function ProductCatalog() {
     {
       header: "Công thức",
       render: (row) => {
-        const hasRecipe = recipes.some((r) => r.productId === row.id);
+        const hasRecipe = recipes.some(
+          (r) => r.productId === row.id || r.productId === row.id?.toString(),
+        );
         return (
           <Badge
             variant={hasRecipe ? "success" : "neutral"}
@@ -250,7 +345,7 @@ export default function ProductCatalog() {
             title="Xem chi tiết"
             onClick={(e) => {
               e.stopPropagation();
-              handleView(row);
+              setViewProduct(row);
             }}
           />
           <Button
@@ -293,6 +388,7 @@ export default function ProductCatalog() {
       <DataTable
         columns={columns}
         data={products}
+        loading={loading}
         searchPlaceholder="Tìm sản phẩm..."
         toolbar={<Badge variant="primary">{products.length} sản phẩm</Badge>}
       />
@@ -308,7 +404,7 @@ export default function ProductCatalog() {
             <Button variant="secondary" onClick={() => setShowModal(false)}>
               Hủy
             </Button>
-            <Button onClick={handleSave}>
+            <Button onClick={handleSave} disabled={saving}>
               {editProduct ? "Lưu thay đổi" : "Tạo sản phẩm"}
             </Button>
           </>
@@ -333,7 +429,7 @@ export default function ProductCatalog() {
             <Select
               label="Danh mục"
               required
-              options={CATEGORY_OPTIONS}
+              options={categoryOptions}
               value={form.category}
               onChange={(e) =>
                 setForm((f) => ({ ...f, category: e.target.value }))
@@ -398,6 +494,106 @@ export default function ProductCatalog() {
               sản phẩm)
             </div>
           )}
+          {/* Image upload */}
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: "13px",
+                fontWeight: 500,
+                marginBottom: "6px",
+                color: "var(--text-secondary)",
+              }}
+            >
+              Hình ảnh sản phẩm
+            </label>
+            {/* Existing server images (edit mode) */}
+            {editProduct?.imageUrl?.length > 0 && (
+              <div style={{ marginBottom: "8px" }}>
+                <p style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>Ảnh hiện tại:</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                  {editProduct.imageUrl.map((url, i) => (
+                    <img key={i} src={url} alt={`existing-${i}`} style={{
+                      width: 80, height: 80, objectFit: "cover",
+                      borderRadius: "var(--radius-sm)",
+                      border: "1px solid var(--surface-border)",
+                    }} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {imagePreviews.length > 0 ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "8px" }}>
+                {imagePreviews.map((src, i) => (
+                  <div key={i} style={{ position: "relative", width: 80, height: 80 }}>
+                    <img
+                      src={src}
+                      alt={`preview-${i}`}
+                      style={{
+                        width: 80,
+                        height: 80,
+                        objectFit: "cover",
+                        borderRadius: "var(--radius-sm)",
+                        border: "1px solid var(--surface-border)",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        URL.revokeObjectURL(src);
+                        const newPreviews = imagePreviews.filter((_, idx) => idx !== i);
+                        const dt = new DataTransfer();
+                        Array.from(imageFiles).filter((_, idx) => idx !== i).forEach((f) => dt.items.add(f));
+                        setImagePreviews(newPreviews);
+                        setImageFiles(dt.files.length > 0 ? dt.files : null);
+                      }}
+                      style={{
+                        position: "absolute",
+                        top: -6,
+                        right: -6,
+                        width: 18,
+                        height: 18,
+                        borderRadius: "50%",
+                        background: "var(--danger)",
+                        color: "#fff",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: "11px",
+                        lineHeight: "18px",
+                        textAlign: "center",
+                        padding: 0,
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <div
+              style={{
+                border: "1px dashed var(--surface-border)",
+                borderRadius: "var(--radius-md)",
+                padding: "12px",
+                textAlign: "center",
+                cursor: "pointer",
+              }}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload size={18} color="var(--text-muted)" style={{ marginBottom: 2 }} />
+              <p style={{ fontSize: "13px", color: "var(--text-muted)", margin: 0 }}>
+                {imagePreviews.length > 0 ? "Thêm ảnh khác" : "Nhấp để chọn ảnh"}
+              </p>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: "none" }}
+              onChange={(e) => setImages(e.target.files)}
+            />
+          </div>
         </div>
       </Modal>
 
@@ -485,6 +681,36 @@ export default function ProductCatalog() {
               </div>
             </div>
 
+            {/* Product images */}
+            {viewProduct.imageUrl?.length > 0 && (
+              <div>
+                <h4
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    marginBottom: "8px",
+                  }}
+                >
+                  Hình ảnh
+                </h4>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  {viewProduct.imageUrl.map((url, i) => (
+                    <img
+                      key={i}
+                      src={url}
+                      alt={viewProduct.name}
+                      style={{
+                        width: 80,
+                        height: 80,
+                        objectFit: "cover",
+                        borderRadius: "var(--radius-md)",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {recipe && (
               <div>
                 <h4
@@ -518,7 +744,7 @@ export default function ProductCatalog() {
                     <span>Nguyên liệu</span>
                     <span>Định mức</span>
                   </div>
-                  {recipe.ingredients.map((ing, i) => {
+                  {recipe.ingredients?.map((ing, i) => {
                     const ingredient = ingredients.find(
                       (ig) => ig.id === ing.ingredientId,
                     );
@@ -587,6 +813,7 @@ export default function ProductCatalog() {
             <Button
               variant="danger"
               onClick={handleDeleteConfirm}
+              disabled={saving}
             >
               Xóa sản phẩm
             </Button>
@@ -594,8 +821,8 @@ export default function ProductCatalog() {
         }
       >
         <p>
-          Bạn có chắc muốn xóa sản phẩm{" "}
-          <strong>{confirmDelete?.name}</strong>? Hành động này không thể hoàn tác.
+          Bạn có chắc muốn xóa sản phẩm <strong>{confirmDelete?.name}</strong>?
+          Hành động này không thể hoàn tác.
         </p>
       </Modal>
 
@@ -603,11 +830,7 @@ export default function ProductCatalog() {
       <Modal
         isOpen={!!showRecipeModal}
         onClose={() => setShowRecipeModal(null)}
-        title={
-          showRecipeModal
-            ? `Công thức: ${showRecipeModal.name}`
-            : ""
-        }
+        title={showRecipeModal ? `Công thức: ${showRecipeModal.name}` : ""}
         size="lg"
         footer={
           <>
@@ -617,13 +840,16 @@ export default function ProductCatalog() {
             >
               Hủy
             </Button>
-            <Button onClick={handleSaveRecipe}>Lưu công thức</Button>
+            <Button onClick={handleSaveRecipe} disabled={saving}>
+              Lưu công thức
+            </Button>
           </>
         }
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
           <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-            Định mức nguyên liệu cho 1 {showRecipeModal?.unit || "phần"} sản phẩm
+            Định mức nguyên liệu cho 1 {showRecipeModal?.unit || "phần"} sản
+            phẩm
           </p>
           {recipeItems.map((item, idx) => (
             <div
@@ -655,7 +881,9 @@ export default function ProductCatalog() {
                 onChange={(e) =>
                   setRecipeItems((prev) =>
                     prev.map((r, i) =>
-                      i === idx ? { ...r, quantity: parseFloat(e.target.value) || "" } : r,
+                      i === idx
+                        ? { ...r, quantity: parseFloat(e.target.value) || "" }
+                        : r,
                     ),
                   )
                 }
