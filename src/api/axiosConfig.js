@@ -87,6 +87,7 @@ api.interceptors.response.use(
 function clearAuth() {
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");
+  localStorage.removeItem("ckitchen_auth");
   // Redirect to login without hard-coupling to React Router
   window.location.href = "/login";
 }

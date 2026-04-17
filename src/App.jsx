@@ -44,6 +44,7 @@ import IssueManagement from "./features/issues/IssueManagement";
 // Manager features
 import ProductCatalog from "./features/products/ProductCatalog";
 import ManagerInventory from "./features/inventory/manager/ManagerInventory";
+import RecipeManagement from "./features/recipes/RecipeManagement";
 import Reports from "./features/reports/Reports";
 
 // Admin features
@@ -133,6 +134,7 @@ function AppRoutes() {
         <Route element={<ProtectedRoute allowedRoles={["manager"]} />}>
           <Route path="/manager/dashboard" element={<ManagerDashboard />} />
           <Route path="/manager/products" element={<ProductCatalog />} />
+          <Route path="/manager/recipes" element={<RecipeManagement />} />
           <Route path="/manager/inventory" element={<ManagerInventory />} />
           <Route path="/manager/reports" element={<Reports />} />
           <Route

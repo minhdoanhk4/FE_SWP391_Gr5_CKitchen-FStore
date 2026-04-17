@@ -1,9 +1,10 @@
+import { useState, useEffect } from "react";
 import {
   DollarSign,
   ShoppingCart,
   Store,
-  TrendingUp,
   Percent,
+  AlertTriangle,
 } from "lucide-react";
 import {
   BarChart,
@@ -20,22 +21,49 @@ import {
   CartesianGrid,
   Legend,
 } from "recharts";
+import toast from "react-hot-toast";
 import PageWrapper from "../../../components/layout/PageWrapper/PageWrapper";
-import { StatCard } from "../../../components/ui";
+import { StatCard, Badge } from "../../../components/ui";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useData } from "../../../contexts/DataContext";
+import managerService from "../../../services/managerService";
 import "../Dashboard.css";
 
 export default function ManagerDashboard() {
   const { user } = useAuth();
-  const {
-    dashboardStats,
-    revenueData,
-    categoryDistribution,
-    formatCurrency,
-    ordersByStore,
-  } = useData();
-  const stats = dashboardStats.manager;
+  const { revenueData, categoryDistribution, formatCurrency, ordersByStore } =
+    useData();
+
+  const [overview, setOverview] = useState(null);
+  const [kitchenLowStock, setKitchenLowStock] = useState([]);
+  const [storeLowStock, setStoreLowStock] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    Promise.all([
+      managerService.dashboard.getOverview(),
+      managerService.dashboard.getKitchenLowStock(),
+      managerService.dashboard.getStoreLowStock(),
+    ])
+      .then(([ov, kitchen, store]) => {
+        if (!mounted) return;
+        setOverview(ov);
+        setKitchenLowStock(
+          Array.isArray(kitchen) ? kitchen : (kitchen?.content ?? []),
+        );
+        setStoreLowStock(Array.isArray(store) ? store : (store?.content ?? []));
+      })
+      .catch(() => { if (mounted) toast.error("Không thể tải dữ liệu tổng quan"); })
+      .finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, []);
+
+  const totalRevenue = overview?.totalRevenue ?? 0;
+  const totalOrders = overview?.totalOrders ?? 0;
+  const activeStores = overview?.activeStores ?? 0;
+  const wastageRate = overview?.wastageRate ?? 0;
+  const avgFulfillment = overview?.avgFulfillment ?? 0;
 
   return (
     <PageWrapper>
@@ -46,16 +74,16 @@ export default function ManagerDashboard() {
         <p className="welcome-banner__greeting">Báo cáo tổng quan,</p>
         <h2 className="welcome-banner__name">{user?.name} 📊</h2>
         <p className="welcome-banner__summary">
-          Doanh thu tháng này đạt {formatCurrency(stats.totalRevenue)} với{" "}
-          {stats.totalOrders} đơn hàng. Tỷ lệ hoàn thành {stats.avgFulfillment}
-          %.
+          {loading
+            ? "Đang tải dữ liệu..."
+            : `Doanh thu tháng này đạt ${formatCurrency(totalRevenue)} với ${totalOrders} đơn hàng. Tỷ lệ hoàn thành ${avgFulfillment}%.`}
         </p>
       </div>
 
       <div className="dashboard-stats">
         <StatCard
           label="Tổng doanh thu"
-          value={formatCurrency(stats.totalRevenue)}
+          value={loading ? "..." : formatCurrency(totalRevenue)}
           icon={DollarSign}
           color="primary"
           trend="up"
@@ -63,7 +91,7 @@ export default function ManagerDashboard() {
         />
         <StatCard
           label="Tổng đơn hàng"
-          value={stats.totalOrders}
+          value={loading ? "..." : totalOrders}
           icon={ShoppingCart}
           color="info"
           trend="up"
@@ -71,19 +99,99 @@ export default function ManagerDashboard() {
         />
         <StatCard
           label="Cửa hàng hoạt động"
-          value={stats.activeStores}
+          value={loading ? "..." : activeStores}
           icon={Store}
           color="accent"
         />
         <StatCard
           label="Tỷ lệ hao hụt"
-          value={`${stats.wastageRate}%`}
+          value={loading ? "..." : `${wastageRate}%`}
           icon={Percent}
           color="warning"
           trend="down"
           trendValue="-0.5%"
         />
       </div>
+
+      {/* Low stock alerts */}
+      {(kitchenLowStock.length > 0 || storeLowStock.length > 0) && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "var(--space-5)",
+            marginBottom: "var(--space-5)",
+          }}
+        >
+          {kitchenLowStock.length > 0 && (
+            <div className="dashboard-section">
+              <div className="dashboard-section__header">
+                <h3
+                  className="dashboard-section__title"
+                  style={{ display: "flex", alignItems: "center", gap: 6 }}
+                >
+                  <AlertTriangle size={16} color="var(--warning)" />
+                  Nguyên liệu bếp sắp hết ({kitchenLowStock.length})
+                </h3>
+              </div>
+              <div className="dashboard-section__body">
+                {kitchenLowStock.slice(0, 5).map((item, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 0",
+                      borderBottom: "1px solid var(--surface-border)",
+                      fontSize: 13,
+                    }}
+                  >
+                    <span>{item.name || item.ingredientName}</span>
+                    <Badge variant="warning">
+                      {item.quantity ?? item.currentStock} {item.unit}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {storeLowStock.length > 0 && (
+            <div className="dashboard-section">
+              <div className="dashboard-section__header">
+                <h3
+                  className="dashboard-section__title"
+                  style={{ display: "flex", alignItems: "center", gap: 6 }}
+                >
+                  <AlertTriangle size={16} color="var(--danger)" />
+                  Sản phẩm cửa hàng sắp hết ({storeLowStock.length})
+                </h3>
+              </div>
+              <div className="dashboard-section__body">
+                {storeLowStock.slice(0, 5).map((item, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 0",
+                      borderBottom: "1px solid var(--surface-border)",
+                      fontSize: 13,
+                    }}
+                  >
+                    <span>{item.name || item.productName}</span>
+                    <Badge variant="danger">
+                      {item.quantity ?? item.currentStock} {item.unit}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div
         className="dashboard-grid--equal"
