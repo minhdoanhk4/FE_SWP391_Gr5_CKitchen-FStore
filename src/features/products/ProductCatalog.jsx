@@ -250,6 +250,25 @@ export default function ProductCatalog() {
 
   const columns = [
     {
+      header: "",
+      width: "48px",
+      render: (r) =>
+        r.imageUrl?.[0] ? (
+          <img
+            src={r.imageUrl[0]}
+            alt={r.name}
+            style={{ width: 36, height: 36, objectFit: "cover", borderRadius: "var(--radius-sm)" }}
+          />
+        ) : (
+          <div style={{
+            width: 36, height: 36, borderRadius: "var(--radius-sm)",
+            background: "var(--surface-hover)", display: "flex",
+            alignItems: "center", justifyContent: "center",
+            fontSize: "16px", color: "var(--text-muted)",
+          }}>🍽</div>
+        ),
+    },
+    {
       header: "Mã SP",
       accessor: "id",
       width: "80px",
@@ -488,6 +507,21 @@ export default function ProductCatalog() {
             >
               Hình ảnh sản phẩm
             </label>
+            {/* Existing server images (edit mode) */}
+            {editProduct?.imageUrl?.length > 0 && (
+              <div style={{ marginBottom: "8px" }}>
+                <p style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>Ảnh hiện tại:</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                  {editProduct.imageUrl.map((url, i) => (
+                    <img key={i} src={url} alt={`existing-${i}`} style={{
+                      width: 80, height: 80, objectFit: "cover",
+                      borderRadius: "var(--radius-sm)",
+                      border: "1px solid var(--surface-border)",
+                    }} />
+                  ))}
+                </div>
+              </div>
+            )}
             {imagePreviews.length > 0 ? (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "8px" }}>
                 {imagePreviews.map((src, i) => (
@@ -648,7 +682,7 @@ export default function ProductCatalog() {
             </div>
 
             {/* Product images */}
-            {viewProduct.images?.length > 0 && (
+            {viewProduct.imageUrl?.length > 0 && (
               <div>
                 <h4
                   style={{
@@ -660,7 +694,7 @@ export default function ProductCatalog() {
                   Hình ảnh
                 </h4>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                  {viewProduct.images.map((url, i) => (
+                  {viewProduct.imageUrl.map((url, i) => (
                     <img
                       key={i}
                       src={url}

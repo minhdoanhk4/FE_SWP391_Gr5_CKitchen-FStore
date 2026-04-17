@@ -12,7 +12,7 @@
 }
 
 .input-label--required::after {
-  content: ' *';
+  content: " *";
   color: var(--danger);
 }
 
@@ -28,10 +28,12 @@
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-sm);
   color: var(--text-primary);
-  background: var(--surface-card);
+  background-color: var(--surface-card);
   border: 1.5px solid var(--surface-border);
   border-radius: var(--radius-md);
   outline: none;
+  -webkit-appearance: none;
+  appearance: none;
   transition: all var(--transition-fast);
 }
 
@@ -76,6 +78,35 @@
   color: var(--text-muted);
 }
 
+/* Fix browser autofill overriding background */
+.input-field:-webkit-autofill,
+.input-field:-webkit-autofill:hover,
+.input-field:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px var(--surface-card) inset;
+  -webkit-text-fill-color: var(--text-primary);
+}
+
+/* Explicit dark mode overrides — ensures background is never white */
+[data-theme="dark"] .input-field,
+[data-theme="dark"] .textarea-field {
+  background-color: #292524;
+  color: #fafaf9;
+  border-color: #44403c;
+}
+
+[data-theme="dark"] .select-field {
+  background-color: #292524;
+  color: #fafaf9;
+  border-color: #44403c;
+}
+
+[data-theme="dark"] .input-field:-webkit-autofill,
+[data-theme="dark"] .input-field:-webkit-autofill:hover,
+[data-theme="dark"] .input-field:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px #292524 inset;
+  -webkit-text-fill-color: #fafaf9;
+}
+
 /* ---- Textarea ---- */
 .textarea-field {
   width: 100%;
@@ -83,11 +114,13 @@
   padding: var(--space-3);
   font-size: var(--text-sm);
   color: var(--text-primary);
-  background: var(--surface-card);
+  background-color: var(--surface-card);
   border: 1.5px solid var(--surface-border);
   border-radius: var(--radius-md);
   outline: none;
   resize: vertical;
+  -webkit-appearance: none;
+  appearance: none;
   transition: all var(--transition-fast);
   font-family: var(--font-body);
 }
@@ -105,10 +138,11 @@
   padding-right: var(--space-10);
   font-size: var(--text-sm);
   color: var(--text-primary);
-  background: var(--surface-card);
+  background-color: var(--surface-card);
   border: 1.5px solid var(--surface-border);
   border-radius: var(--radius-md);
   outline: none;
+  -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
   transition: all var(--transition-fast);

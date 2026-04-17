@@ -4,7 +4,7 @@ import authService from "../services/authService";
 const AuthContext = createContext(null);
 
 const ROLES = {
-  STORE_STAFF: "STORE_STAFF",
+  STORE_STAFF: "FRANCHISE_STORE_STAFF",
   KITCHEN_STAFF: "KITCHEN_STAFF",
   SUPPLY_COORDINATOR: "SUPPLY_COORDINATOR",
   MANAGER: "MANAGER",

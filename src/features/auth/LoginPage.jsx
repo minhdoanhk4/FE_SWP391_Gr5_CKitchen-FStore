@@ -13,24 +13,33 @@ export default function LoginPage() {
     password: ''
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (error) setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.username.trim()) { setError('Vui lòng nhập tên đăng nhập.'); return; }
+    if (!formData.password) { setError('Vui lòng nhập mật khẩu.'); return; }
     setIsLoading(true);
-    
+    setError('');
     try {
       const user = await login(formData.username, formData.password);
-      // After login, navigate to the specific dashboard based on role
       const rolePath = ROLE_INFO[user.role]?.path || '/admin';
       navigate(rolePath + '/dashboard');
-    } catch (error) {
-      console.error("Login failed:", error);
-      alert("Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin đăng nhập.");
+    } catch (err) {
+      const status = err?.response?.status;
+      if (status === 401 || status === 403) {
+        setError('Tên đăng nhập hoặc mật khẩu không đúng.');
+      } else if (status >= 500) {
+        setError('Lỗi máy chủ. Vui lòng thử lại sau.');
+      } else {
+        setError('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -80,6 +89,12 @@ export default function LoginPage() {
               />
             </div>
           </div>
+
+          {error && (
+            <div className="login-error">
+              {error}
+            </div>
+          )}
 
           <button type="submit" className="login-submit-btn" disabled={isLoading}>
             {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}

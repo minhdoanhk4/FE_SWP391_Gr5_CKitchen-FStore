@@ -93,7 +93,7 @@ function AppRoutes() {
         }
       >
         {/* Store Staff */}
-        <Route element={<ProtectedRoute allowedRoles={["STORE_STAFF"]} />}>
+        <Route element={<ProtectedRoute allowedRoles={["FRANCHISE_STORE_STAFF"]} />}>
           <Route path="/store/dashboard" element={<StoreDashboard />} />
           <Route path="/store/orders" element={<StoreOrders />} />
           <Route path="/store/orders/new" element={<NewOrder />} />

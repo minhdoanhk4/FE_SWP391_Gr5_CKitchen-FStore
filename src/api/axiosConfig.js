@@ -88,8 +88,9 @@ function clearAuth() {
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");
   localStorage.removeItem("ckitchen_auth");
-  // Redirect to login without hard-coupling to React Router
-  window.location.href = "/login";
+  if (!window.location.pathname.startsWith("/login")) {
+    window.location.href = "/login";
+  }
 }
 
 export default api;
