@@ -40,8 +40,23 @@ export default function ProductCatalog() {
 
   const [form, setForm] = useState(EMPTY_FORM);
   const [imageFiles, setImageFiles] = useState(null);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [errors, setErrors] = useState({});
   const fileInputRef = useRef(null);
+
+  const setImages = (files) => {
+    if (!files || files.length === 0) {
+      setImagePreviews((prev) => { prev.forEach(URL.revokeObjectURL); return []; });
+      setImageFiles(null);
+      return;
+    }
+    const incoming = Array.from(files);
+    const dt = new DataTransfer();
+    Array.from(imageFiles ?? []).forEach((f) => dt.items.add(f));
+    incoming.forEach((f) => dt.items.add(f));
+    setImageFiles(dt.files);
+    setImagePreviews((prev) => [...prev, ...incoming.map(URL.createObjectURL)]);
+  };
 
   // Load products, recipes, categories on mount
   useEffect(() => {
@@ -90,7 +105,7 @@ export default function ProductCatalog() {
   const handleOpenNew = () => {
     setEditProduct(null);
     setForm(EMPTY_FORM);
-    setImageFiles(null);
+    setImages(null);
     setErrors({});
     setShowModal(true);
   };
@@ -104,7 +119,7 @@ export default function ProductCatalog() {
       price: product.price?.toString() ?? "",
       cost: product.cost?.toString() ?? "",
     });
-    setImageFiles(null);
+    setImages(null);
     setErrors({});
     setShowModal(true);
   };
@@ -473,31 +488,67 @@ export default function ProductCatalog() {
             >
               Hình ảnh sản phẩm
             </label>
+            {imagePreviews.length > 0 ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "8px" }}>
+                {imagePreviews.map((src, i) => (
+                  <div key={i} style={{ position: "relative", width: 80, height: 80 }}>
+                    <img
+                      src={src}
+                      alt={`preview-${i}`}
+                      style={{
+                        width: 80,
+                        height: 80,
+                        objectFit: "cover",
+                        borderRadius: "var(--radius-sm)",
+                        border: "1px solid var(--surface-border)",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        URL.revokeObjectURL(src);
+                        const newPreviews = imagePreviews.filter((_, idx) => idx !== i);
+                        const dt = new DataTransfer();
+                        Array.from(imageFiles).filter((_, idx) => idx !== i).forEach((f) => dt.items.add(f));
+                        setImagePreviews(newPreviews);
+                        setImageFiles(dt.files.length > 0 ? dt.files : null);
+                      }}
+                      style={{
+                        position: "absolute",
+                        top: -6,
+                        right: -6,
+                        width: 18,
+                        height: 18,
+                        borderRadius: "50%",
+                        background: "var(--danger)",
+                        color: "#fff",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: "11px",
+                        lineHeight: "18px",
+                        textAlign: "center",
+                        padding: 0,
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             <div
               style={{
                 border: "1px dashed var(--surface-border)",
                 borderRadius: "var(--radius-md)",
-                padding: "16px",
+                padding: "12px",
                 textAlign: "center",
                 cursor: "pointer",
               }}
               onClick={() => fileInputRef.current?.click()}
             >
-              <Upload
-                size={20}
-                color="var(--text-muted)"
-                style={{ marginBottom: 4 }}
-              />
-              <p
-                style={{
-                  fontSize: "13px",
-                  color: "var(--text-muted)",
-                  margin: 0,
-                }}
-              >
-                {imageFiles && imageFiles.length > 0
-                  ? `${imageFiles.length} file đã chọn`
-                  : "Nhấp để chọn ảnh"}
+              <Upload size={18} color="var(--text-muted)" style={{ marginBottom: 2 }} />
+              <p style={{ fontSize: "13px", color: "var(--text-muted)", margin: 0 }}>
+                {imagePreviews.length > 0 ? "Thêm ảnh khác" : "Nhấp để chọn ảnh"}
               </p>
             </div>
             <input
@@ -506,7 +557,7 @@ export default function ProductCatalog() {
               accept="image/*"
               multiple
               style={{ display: "none" }}
-              onChange={(e) => setImageFiles(e.target.files)}
+              onChange={(e) => setImages(e.target.files)}
             />
           </div>
         </div>
