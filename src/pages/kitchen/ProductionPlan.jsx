@@ -1,312 +1,125 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Plus,
-  ChefHat,
-  Clock,
-  CheckCircle,
-  Play,
   Calendar,
   User,
   Package,
-  Edit,
-  Trash2,
+  Clock,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { Card, Badge, Button } from "../../components/ui";
 import { Modal } from "../../components/ui";
-import { Input, Select, Textarea } from "../../components/ui";
-import { useAuth } from "../../contexts/AuthContext";
-import { useData } from "../../contexts/DataContext";
+import { Input, Textarea } from "../../components/ui";
+import kitchenService from "../../services/kitchenService";
 import "./ProductionPlan.css";
 
 const STATUS_CONFIG = {
-  planned: { label: "Đã lên kế hoạch", variant: "info", icon: Calendar },
-  in_progress: { label: "Đang sản xuất", variant: "accent", icon: Play },
-  completed: { label: "Hoàn thành", variant: "success", icon: CheckCircle },
+  PLANNED: { label: "Đã lên kế hoạch", variant: "info" },
+  IN_PROGRESS: { label: "Đang sản xuất", variant: "accent" },
+  COMPLETED: { label: "Hoàn thành", variant: "success" },
+  // fallback for any other BE status
 };
 
+function formatDateTime(d) {
+  if (!d) return "—";
+  return new Date(d).toLocaleString("vi-VN");
+}
+
 export default function ProductionPlan() {
-  const { user } = useAuth();
-  const {
-    products,
-    recipes,
-    ingredients: ingredientsList,
-    orders,
-    kitchenInventory,
-    productionPlans: plans,
-    formatDateTime,
-    addProductionPlan,
-    updateProductionPlan,
-    deleteProductionPlan,
-    updateKitchenInventory,
-    addAuditLog,
-  } = useData();
-  const [showModal, setShowModal] = useState(false);
-  const [editPlan, setEditPlan] = useState(null);
-  const [filter, setFilter] = useState("all");
+  const [plans, setPlans] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
   const [form, setForm] = useState({
     productId: "",
     quantity: "",
-    staff: "",
     startDate: "",
+    endDate: "",
     notes: "",
   });
   const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
 
-  // Compute ingredients from recipe based on selected product + quantity
-  const computedIngredients = useMemo(() => {
-    if (!form.productId) return [];
-    const recipe = recipes.find((r) => r.productId === form.productId);
-    if (!recipe) return [];
-    const qty = parseInt(form.quantity) || 0;
-    return recipe.ingredients.map((ri) => {
-      const ing = ingredientsList.find((i) => i.id === ri.ingredientId);
-      const totalQty = Math.round(ri.quantity * qty * 100) / 100;
-      return {
-        name: ing?.name || ri.ingredientId,
-        qty: `${totalQty}${ri.unit}`,
-      };
-    });
-  }, [form.productId, form.quantity, recipes, ingredientsList]);
+  // ── Fetch plans ───────────────────────────────────────────────────────────
+  const fetchPlans = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await kitchenService.getProductionPlans({ page, size: 20 });
+      setPlans(data.content || []);
+      setTotalPages(data.totalPages || 0);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Không thể tải kế hoạch sản xuất");
+    } finally {
+      setLoading(false);
+    }
+  }, [page]);
 
-  // Aggregate pending/confirmed order demand by product
-  const orderDemand = useMemo(() => {
-    const demandMap = {};
-    orders
-      .filter((o) => o.status === "pending" || o.status === "confirmed")
-      .forEach((order) => {
-        order.items.forEach((item) => {
-          if (!demandMap[item.productId]) {
-            demandMap[item.productId] = {
-              productName: item.productName,
-              totalQty: 0,
-              unit: item.unit,
-              orderCount: 0,
-              orderIds: new Set(),
-            };
-          }
-          demandMap[item.productId].totalQty += item.quantity;
-          if (!demandMap[item.productId].orderIds.has(order.id)) {
-            demandMap[item.productId].orderIds.add(order.id);
-            demandMap[item.productId].orderCount += 1;
-          }
-        });
-      });
-    return Object.entries(demandMap).map(([productId, d]) => ({
-      productId,
-      productName: d.productName,
-      totalQty: d.totalQty,
-      unit: d.unit,
-      orderCount: d.orderCount,
-    }));
-  }, [orders]);
+  useEffect(() => { fetchPlans(); }, [fetchPlans]);
 
-  const filtered =
-    filter === "all" ? plans : plans.filter((p) => p.status === filter);
-
+  // ── Create ────────────────────────────────────────────────────────────────
   const handleOpenNew = () => {
-    setEditPlan(null);
-    setForm({
-      productId: "",
-      quantity: "",
-      staff: "",
-      startDate: "",
-      notes: "",
-    });
-    setErrors({});
-    setShowModal(true);
-  };
-
-  const handleEdit = (plan) => {
-    setEditPlan(plan);
-    setForm({
-      productId: plan.productId,
-      quantity: plan.quantity.toString(),
-      staff: plan.staff,
-      startDate: plan.startDate?.slice(0, 16) || "",
-      notes: plan.notes || "",
-    });
+    setForm({ productId: "", quantity: "", startDate: "", endDate: "", notes: "" });
     setErrors({});
     setShowModal(true);
   };
 
   const validate = () => {
     const errs = {};
-    if (!form.productId) errs.productId = "Vui lòng chọn sản phẩm";
-    if (!form.quantity) errs.quantity = "Vui lòng nhập số lượng";
-    if (!form.staff.trim()) errs.staff = "Vui lòng nhập nhân viên phụ trách";
-    if (!form.startDate) errs.startDate = "Vui lòng chọn thời gian bắt đầu";
+    if (!form.productId.trim()) errs.productId = "Vui lòng nhập mã sản phẩm";
+    if (!form.quantity || parseInt(form.quantity) <= 0) errs.quantity = "Vui lòng nhập số lượng hợp lệ";
+    if (!form.startDate) errs.startDate = "Vui lòng chọn ngày bắt đầu";
+    if (!form.endDate) errs.endDate = "Vui lòng chọn ngày kết thúc";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return;
-    const product = products.find((p) => p.id === form.productId);
-    if (editPlan) {
-      updateProductionPlan(editPlan.id, {
-        productId: form.productId,
-        productName: product?.name || editPlan.productName,
-        quantity: parseInt(form.quantity) || editPlan.quantity,
-        unit: product?.unit || editPlan.unit,
-        staff: form.staff,
+    setSaving(true);
+    try {
+      await kitchenService.createProductionPlan({
+        productId: form.productId.trim(),
+        quantity: parseInt(form.quantity),
         startDate: form.startDate,
-        notes: form.notes,
+        endDate: form.endDate || undefined,
+        notes: form.notes || undefined,
       });
-    } else {
-      const maxPlanNum = plans.reduce((max, p) => {
-        const num = parseInt(p.id.replace("KH-", ""));
-        return num > max ? num : max;
-      }, 0);
-      const planId = `KH-${String(maxPlanNum + 1).padStart(3, "0")}`;
-      const newPlan = {
-        id: planId,
-        productId: form.productId,
-        productName: product?.name || "Sản phẩm",
-        quantity: parseInt(form.quantity) || 0,
-        unit: product?.unit || "phần",
-        status: "planned",
-        startDate: form.startDate,
-        endDate: null,
-        staff: form.staff,
-        notes: form.notes,
-        ingredients: computedIngredients,
-      };
-      addProductionPlan(newPlan);
-
-      addAuditLog(
-        "production_planned",
-        user.name,
-        `Tạo KH SX ${planId} - ${product?.name} x${form.quantity}`,
-        "production",
-      );
-    }
-    setShowModal(false);
-  };
-
-  const handleDelete = (plan) => {
-    setConfirmDelete(plan);
-  };
-
-  const handleDeleteConfirm = () => {
-    if (!confirmDelete) return;
-    deleteProductionPlan(confirmDelete.id);
-    if (selectedPlan?.id === confirmDelete.id) setSelectedPlan(null);
-    setConfirmDelete(null);
-  };
-
-  const handleStatusChange = (id, newStatus) => {
-    const plan = plans.find((p) => p.id === id);
-    const endDate =
-      newStatus === "completed" ? new Date().toISOString() : undefined;
-    updateProductionPlan(id, { status: newStatus, endDate });
-
-    // Auto-deduct ingredients on completion
-    if (newStatus === "completed" && plan) {
-      const recipe = recipes.find((r) => r.productId === plan.productId);
-      if (recipe) {
-        recipe.ingredients.forEach((ri) => {
-          const inv = kitchenInventory.find(
-            (i) => i.ingredientId === ri.ingredientId,
-          );
-          if (inv) {
-            const deduction = ri.quantity * plan.quantity;
-            updateKitchenInventory(inv.id, {
-              quantity: Math.max(0, Math.round((inv.quantity - deduction) * 100) / 100),
-            });
-          }
-        });
-      }
-      addAuditLog(
-        "production_completed",
-        user.name,
-        `Hoàn thành KH ${id} - NL đã trừ kho tự động`,
-        "production",
-      );
-    } else if (newStatus === "in_progress") {
-      addAuditLog(
-        "production_started",
-        user.name,
-        `Bắt đầu SX theo KH ${id}`,
-        "production",
-      );
+      toast.success("Tạo kế hoạch sản xuất thành công");
+      setShowModal(false);
+      fetchPlans();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Không thể tạo kế hoạch");
+    } finally {
+      setSaving(false);
     }
   };
-
-  const productOptions = products.map((p) => ({ value: p.id, label: p.name }));
 
   return (
     <PageWrapper
       title="Kế hoạch sản xuất"
-      subtitle="Lập kế hoạch và theo dõi tiến độ sản xuất theo nhu cầu tổng hợp"
+      subtitle="Lập kế hoạch và theo dõi tiến độ sản xuất"
       actions={
         <Button icon={Plus} onClick={handleOpenNew}>
           Lập kế hoạch mới
         </Button>
       }
     >
-      {/* Stats summary */}
-      <div className="production-stats">
-        <div className="production-stat">
-          <Calendar size={20} />
-          <div>
-            <span className="production-stat__value">
-              {plans.filter((p) => p.status === "planned").length}
-            </span>
-            <span className="production-stat__label">Đã lên KH</span>
-          </div>
-        </div>
-        <div className="production-stat production-stat--active">
-          <Play size={20} />
-          <div>
-            <span className="production-stat__value">
-              {plans.filter((p) => p.status === "in_progress").length}
-            </span>
-            <span className="production-stat__label">Đang SX</span>
-          </div>
-        </div>
-        <div className="production-stat production-stat--done">
-          <CheckCircle size={20} />
-          <div>
-            <span className="production-stat__value">
-              {plans.filter((p) => p.status === "completed").length}
-            </span>
-            <span className="production-stat__label">Hoàn thành</span>
-          </div>
-        </div>
-        <div className="production-stat production-stat--total">
-          <Package size={20} />
-          <div>
-            <span className="production-stat__value">
-              {plans.reduce((s, p) => s + p.quantity, 0)}
-            </span>
-            <span className="production-stat__label">Tổng SL</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter */}
-      <div className="production-filters">
-        {["all", "planned", "in_progress", "completed"].map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className={`production-filter-btn ${filter === s ? "production-filter-btn--active" : ""}`}
-          >
-            {s === "all" ? "Tất cả" : STATUS_CONFIG[s].label}
-          </button>
-        ))}
-      </div>
-
       {/* Plans grid + detail */}
       <div className="production-layout">
         <div className="production-list">
-          {filtered.map((plan) => {
-            const config = STATUS_CONFIG[plan.status];
-            const StatusIcon = config.icon;
+          {loading && plans.length === 0 && (
+            <p style={{ color: "var(--text-muted)", padding: "20px", textAlign: "center" }}>Đang tải...</p>
+          )}
+          {!loading && plans.length === 0 && (
+            <p style={{ color: "var(--text-muted)", padding: "20px", textAlign: "center" }}>Chưa có kế hoạch sản xuất nào.</p>
+          )}
+          {plans.map((plan) => {
+            const config = STATUS_CONFIG[plan.status] || { label: plan.status, variant: "neutral" };
             return (
               <div
                 key={plan.id}
@@ -314,74 +127,16 @@ export default function ProductionPlan() {
                 onClick={() => setSelectedPlan(plan)}
               >
                 <div className="production-card__header">
-                  <span className="production-card__id font-mono">
-                    {plan.id}
-                  </span>
-                  <Badge variant={config.variant} dot>
-                    {config.label}
-                  </Badge>
+                  <span className="production-card__id font-mono">{plan.id}</span>
+                  <Badge variant={config.variant} dot>{config.label}</Badge>
                 </div>
-                <h4 className="production-card__name">{plan.productName}</h4>
+                <h4 className="production-card__name">{plan.productName || plan.productId}</h4>
                 <div className="production-card__meta">
-                  <span>
-                    <Package size={14} /> {plan.quantity} {plan.unit}
-                  </span>
-                  <span>
-                    <User size={14} /> {plan.staff}
-                  </span>
+                  <span><Package size={14} /> {plan.quantity} {plan.unit || "phần"}</span>
+                  {plan.staff && <span><User size={14} /> {plan.staff}</span>}
                 </div>
                 <div className="production-card__meta">
-                  <span>
-                    <Clock size={14} /> {formatDateTime(plan.startDate)}
-                  </span>
-                </div>
-                <div className="production-card__actions">
-                  {plan.status === "planned" && (
-                    <Button
-                      size="sm"
-                      variant="accent"
-                      icon={Play}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleStatusChange(plan.id, "in_progress");
-                      }}
-                    >
-                      Bắt đầu SX
-                    </Button>
-                  )}
-                  {plan.status === "in_progress" && (
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      icon={CheckCircle}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleStatusChange(plan.id, "completed");
-                      }}
-                    >
-                      Hoàn thành
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    iconOnly
-                    icon={Edit}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEdit(plan);
-                    }}
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    iconOnly
-                    icon={Trash2}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(plan);
-                    }}
-                  />
+                  <span><Clock size={14} /> {formatDateTime(plan.startDate)}</span>
                 </div>
               </div>
             );
@@ -392,107 +147,28 @@ export default function ProductionPlan() {
         {selectedPlan && (
           <div className="production-detail">
             <Card>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  marginBottom: "16px",
-                }}
-              >
-                <h3
-                  style={{
-                    fontFamily: "var(--font-heading)",
-                    fontWeight: 600,
-                    fontSize: "var(--text-lg)",
-                  }}
-                >
-                  {selectedPlan.productName}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+                <h3 style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: "var(--text-lg)" }}>
+                  {selectedPlan.productName || selectedPlan.productId}
                 </h3>
-                <Badge variant={STATUS_CONFIG[selectedPlan.status].variant} dot>
-                  {STATUS_CONFIG[selectedPlan.status].label}
+                <Badge variant={(STATUS_CONFIG[selectedPlan.status] || { variant: "neutral" }).variant} dot>
+                  {(STATUS_CONFIG[selectedPlan.status] || { label: selectedPlan.status }).label}
                 </Badge>
               </div>
 
               <div className="production-detail__info">
-                <div className="production-detail__row">
-                  <span>Mã KH:</span>
-                  <span className="font-mono">{selectedPlan.id}</span>
-                </div>
-                <div className="production-detail__row">
-                  <span>Số lượng:</span>
-                  <span>
-                    {selectedPlan.quantity} {selectedPlan.unit}
-                  </span>
-                </div>
-                <div className="production-detail__row">
-                  <span>Phụ trách:</span>
-                  <span>{selectedPlan.staff}</span>
-                </div>
-                <div className="production-detail__row">
-                  <span>Bắt đầu:</span>
-                  <span>{formatDateTime(selectedPlan.startDate)}</span>
-                </div>
-                {selectedPlan.endDate && (
-                  <div className="production-detail__row">
-                    <span>Kết thúc:</span>
-                    <span>{formatDateTime(selectedPlan.endDate)}</span>
-                  </div>
-                )}
+                <div className="production-detail__row"><span>Mã KH:</span><span className="font-mono">{selectedPlan.id}</span></div>
+                <div className="production-detail__row"><span>Sản phẩm:</span><span>{selectedPlan.productName || selectedPlan.productId}</span></div>
+                <div className="production-detail__row"><span>Số lượng:</span><span>{selectedPlan.quantity} {selectedPlan.unit || "phần"}</span></div>
+                {selectedPlan.staff && <div className="production-detail__row"><span>Phụ trách:</span><span>{selectedPlan.staff}</span></div>}
+                <div className="production-detail__row"><span>Bắt đầu:</span><span>{formatDateTime(selectedPlan.startDate)}</span></div>
+                {selectedPlan.endDate && <div className="production-detail__row"><span>Kết thúc:</span><span>{formatDateTime(selectedPlan.endDate)}</span></div>}
+                {selectedPlan.createdAt && <div className="production-detail__row"><span>Tạo lúc:</span><span>{formatDateTime(selectedPlan.createdAt)}</span></div>}
               </div>
 
               {selectedPlan.notes && (
-                <div
-                  style={{
-                    marginTop: "16px",
-                    padding: "12px",
-                    background: "var(--surface)",
-                    borderRadius: "var(--radius-md)",
-                    fontSize: "13px",
-                    color: "var(--text-secondary)",
-                  }}
-                >
+                <div style={{ marginTop: "16px", padding: "12px", background: "var(--surface)", borderRadius: "var(--radius-md)", fontSize: "13px", color: "var(--text-secondary)" }}>
                   💬 {selectedPlan.notes}
-                </div>
-              )}
-
-              {selectedPlan.ingredients?.length > 0 && (
-                <div style={{ marginTop: "16px" }}>
-                  <h4
-                    style={{
-                      fontSize: "14px",
-                      fontWeight: 600,
-                      marginBottom: "8px",
-                    }}
-                  >
-                    🧂 Nguyên liệu cần dùng
-                  </h4>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "6px",
-                    }}
-                  >
-                    {selectedPlan.ingredients.map((ing, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          padding: "6px 12px",
-                          background: "var(--surface)",
-                          borderRadius: "var(--radius-sm)",
-                          fontSize: "13px",
-                        }}
-                      >
-                        <span>{ing.name}</span>
-                        <span className="font-mono" style={{ fontWeight: 600 }}>
-                          {ing.qty}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               )}
             </Card>
@@ -500,207 +176,71 @@ export default function ProductionPlan() {
         )}
       </div>
 
-      {/* Add/Edit Modal */}
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div style={{ display: "flex", justifyContent: "center", gap: "8px", marginTop: "16px" }}>
+          <Button variant="ghost" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>← Trước</Button>
+          <span style={{ lineHeight: "32px", fontSize: "13px", color: "var(--text-secondary)" }}>Trang {page + 1} / {totalPages}</span>
+          <Button variant="ghost" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>Sau →</Button>
+        </div>
+      )}
+
+      {/* Create Modal */}
       <Modal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        title={
-          editPlan ? `Sửa kế hoạch ${editPlan.id}` : "Lập kế hoạch sản xuất mới"
-        }
+        title="Lập kế hoạch sản xuất mới"
         size="lg"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setShowModal(false)}>
-              Hủy
-            </Button>
-            <Button onClick={handleSave}>
-              {editPlan ? "Lưu thay đổi" : "Tạo kế hoạch"}
-            </Button>
+            <Button variant="secondary" onClick={() => setShowModal(false)}>Hủy</Button>
+            <Button onClick={handleSave} disabled={saving}>{saving ? "Đang tạo..." : "Tạo kế hoạch"}</Button>
           </>
         }
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          {/* Pending order demand summary */}
-          {orderDemand.length > 0 && (
-            <div
-              style={{
-                padding: "12px",
-                background: "var(--surface)",
-                borderRadius: "var(--radius-md)",
-                border: "1px solid var(--border)",
-              }}
-            >
-              <h4
-                style={{
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  marginBottom: "8px",
-                  color: "var(--text-secondary)",
-                }}
-              >
-                Nhu cầu hiện tại (đơn chờ xử lý + đã xác nhận)
-              </h4>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "4px",
-                  fontSize: "13px",
-                }}
-              >
-                {orderDemand.map((d) => (
-                  <div
-                    key={d.productId}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "4px 8px",
-                      borderRadius: "var(--radius-sm)",
-                      background:
-                        d.productId === form.productId
-                          ? "var(--primary-bg)"
-                          : "transparent",
-                    }}
-                  >
-                    <span>{d.productName}</span>
-                    <span className="font-mono" style={{ fontWeight: 600 }}>
-                      {d.totalQty} {d.unit} ({d.orderCount} đơn)
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <Select
-            label="Sản phẩm"
+          <Input
+            label="Mã sản phẩm (Product ID)"
             required
-            options={productOptions}
+            placeholder="VD: PROD-001"
             value={form.productId}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, productId: e.target.value }))
-            }
+            onChange={(e) => setForm((f) => ({ ...f, productId: e.target.value }))}
             error={errors.productId}
           />
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "16px",
-            }}
-          >
+          <Input
+            label="Số lượng"
+            required
+            type="number"
+            placeholder="100"
+            value={form.quantity}
+            onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
+            error={errors.quantity}
+          />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
             <Input
-              label="Số lượng"
+              label="Ngày bắt đầu"
               required
-              type="number"
-              placeholder="100"
-              value={form.quantity}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, quantity: e.target.value }))
-              }
-              error={errors.quantity}
+              type="datetime-local"
+              value={form.startDate}
+              onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
+              error={errors.startDate}
             />
             <Input
-              label="Nhân viên phụ trách"
+              label="Ngày kết thúc"
               required
-              placeholder="Trần Thị Bình"
-              value={form.staff}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, staff: e.target.value }))
-              }
-              error={errors.staff}
+              type="datetime-local"
+              value={form.endDate}
+              onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
+              error={errors.endDate}
             />
           </div>
-          <Input
-            label="Thời gian bắt đầu"
-            required
-            type="datetime-local"
-            value={form.startDate}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, startDate: e.target.value }))
-            }
-            error={errors.startDate}
-          />
           <Textarea
             label="Ghi chú"
             placeholder="Ghi chú về quy trình sản xuất..."
             value={form.notes}
             onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
           />
-
-          {/* Ingredient preview from recipe */}
-          {computedIngredients.length > 0 && (
-            <div
-              style={{
-                padding: "12px",
-                background: "var(--surface)",
-                borderRadius: "var(--radius-md)",
-                border: "1px solid var(--border)",
-              }}
-            >
-              <h4
-                style={{
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  marginBottom: "8px",
-                  color: "var(--text-secondary)",
-                }}
-              >
-                Nguyên liệu cần dùng (tự động từ công thức)
-              </h4>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "4px",
-                }}
-              >
-                {computedIngredients.map((ing, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "4px 8px",
-                      fontSize: "13px",
-                      background: "var(--surface-hover)",
-                      borderRadius: "var(--radius-sm)",
-                    }}
-                  >
-                    <span>{ing.name}</span>
-                    <span className="font-mono" style={{ fontWeight: 600 }}>
-                      {ing.qty}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
-      </Modal>
-
-      {/* Delete confirmation modal */}
-      <Modal
-        isOpen={!!confirmDelete}
-        onClose={() => setConfirmDelete(null)}
-        title="Xác nhận xóa"
-        size="sm"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setConfirmDelete(null)}>
-              Hủy
-            </Button>
-            <Button variant="danger" onClick={handleDeleteConfirm}>
-              Xóa
-            </Button>
-          </>
-        }
-      >
-        <p>
-          Bạn có chắc muốn xóa kế hoạch{" "}
-          <strong>{confirmDelete?.id}</strong> —{" "}
-          {confirmDelete?.productName}?
-        </p>
       </Modal>
     </PageWrapper>
   );

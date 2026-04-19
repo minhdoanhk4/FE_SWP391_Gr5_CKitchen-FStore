@@ -19,7 +19,6 @@ import {
   LogOut,
   Moon,
   Sun,
-  Layers,
   DollarSign,
   PackagePlus,
 } from "lucide-react";
@@ -58,7 +57,6 @@ const NAV_CONFIG = {
           label: "Kế hoạch sản xuất",
         },
         { to: "/kitchen/inventory", icon: Package, label: "Nguyên liệu" },
-        { to: "/kitchen/batches", icon: Layers, label: "Lô sản xuất" },
       ],
     },
   ],
