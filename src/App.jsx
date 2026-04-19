@@ -35,7 +35,6 @@ import StoreSales from "./pages/store/Sales";
 import KitchenOrders from "./pages/kitchen/Orders";
 import KitchenInventory from "./pages/kitchen/Inventory";
 import ProductionPlan from "./pages/kitchen/ProductionPlan";
-import BatchManagement from "./pages/kitchen/BatchManagement";
 
 // Supply pages
 import DeliverySchedule from "./pages/supply/DeliverySchedule";
@@ -106,7 +105,7 @@ function AppRoutes() {
         </Route>
 
         {/* Kitchen Staff */}
-        <Route element={<ProtectedRoute allowedRoles={["KITCHEN_STAFF"]} />}>
+        <Route element={<ProtectedRoute allowedRoles={["CENTRAL_KITCHEN_STAFF"]} />}>
           <Route path="/kitchen/dashboard" element={<KitchenDashboard />} />
           <Route
             path="/kitchen/orders"
@@ -119,7 +118,6 @@ function AppRoutes() {
           />
           <Route path="/kitchen/production" element={<ProductionPlan />} />
           <Route path="/kitchen/inventory" element={<KitchenInventory />} />
-          <Route path="/kitchen/batches" element={<BatchManagement />} />
         </Route>
 
         {/* Supply Coordinator */}
