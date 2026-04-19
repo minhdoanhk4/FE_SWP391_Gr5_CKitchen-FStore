@@ -105,7 +105,7 @@ function AppRoutes() {
         </Route>
 
         {/* Kitchen Staff */}
-        <Route element={<ProtectedRoute allowedRoles={["KITCHEN_STAFF"]} />}>
+        <Route element={<ProtectedRoute allowedRoles={["CENTRAL_KITCHEN_STAFF"]} />}>
           <Route path="/kitchen/dashboard" element={<KitchenDashboard />} />
           <Route
             path="/kitchen/orders"
