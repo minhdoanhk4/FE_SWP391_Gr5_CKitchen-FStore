@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ShoppingCart,
@@ -22,22 +23,50 @@ import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { StatCard } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
+import storeService from "../../services/storeService";
 import "../Dashboard.css";
 
 export default function StoreDashboard() {
   const { user } = useAuth();
   const {
-    dashboardStats,
-    recentActivity,
-    weeklyOrders,
-    storeInventory,
+    recentActivity = [],
+    weeklyOrders = [],
     formatCurrency,
   } = useData();
   const navigate = useNavigate();
-  const stats = dashboardStats.store;
-  const lowStock = storeInventory.filter(
-    (i) => i.storeId === user.store && i.quantity <= i.minStock,
-  );
+
+  const [stats, setStats] = useState({
+    pendingOrders: 0,
+    inTransitOrders: 0,
+    todayRevenue: 0,
+  });
+  const [lowStock, setLowStock] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [overviewResp, inventoryResp] = await Promise.all([
+          storeService.getOverview(),
+          storeService.getStoreInventory({ size: 100 }), // Get some inventory for low stock check
+        ]);
+        
+        setStats({
+          pendingOrders: overviewResp.pendingOrders || 0,
+          inTransitOrders: overviewResp.activeDeliveries || 0,
+          todayRevenue: 0, // Not provided by this API
+        });
+        
+        const low = (inventoryResp.content || []).filter((i) => i.lowStock);
+        setLowStock(low);
+      } catch (error) {
+        console.error("Failed to fetch dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   return (
     <PageWrapper>

@@ -1,28 +1,44 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Eye } from "lucide-react";
+import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { Button, DataTable, Badge } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
+import storeService from "../../services/storeService";
 
 export default function StoreOrders() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const {
-    orders,
     STATUS_LABELS,
     STATUS_COLORS,
     formatCurrency,
     formatDateTime,
   } = useData();
   const [statusFilter, setStatusFilter] = useState("all");
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const storeOrders = orders.filter((o) => o.storeId === user.store);
-  const filtered =
-    statusFilter === "all"
-      ? storeOrders
-      : storeOrders.filter((o) => o.status === statusFilter);
+  useEffect(() => {
+    const fetchOrders = async () => {
+      setLoading(true);
+      try {
+        const queryParams = { size: 100 };
+        if (statusFilter !== "all") {
+          queryParams.status = statusFilter.toUpperCase();
+        }
+        const resp = await storeService.getOrders(queryParams);
+        setData(resp.content || []);
+      } catch (err) {
+        toast.error("Không thể tải danh sách đơn hàng");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchOrders();
+  }, [statusFilter]);
 
   const columns = [
     {
@@ -65,11 +81,14 @@ export default function StoreOrders() {
       header: "Trạng thái",
       accessor: "status",
       sortable: true,
-      render: (row) => (
-        <Badge variant={STATUS_COLORS[row.status]} dot>
-          {STATUS_LABELS[row.status]}
-        </Badge>
-      ),
+      render: (row) => {
+        const s = row.status?.toLowerCase() || '';
+        return (
+          <Badge variant={STATUS_COLORS[s]} dot>
+            {STATUS_LABELS[s]}
+          </Badge>
+        );
+      },
     },
     {
       header: "Tạo lúc",
@@ -158,7 +177,8 @@ export default function StoreOrders() {
 
       <DataTable
         columns={columns}
-        data={filtered}
+        data={data}
+        loading={loading}
         searchPlaceholder="Tìm theo mã đơn, sản phẩm..."
         emptyTitle="Chưa có đơn hàng"
         emptyDesc="Bấm 'Tạo đơn mới' để bắt đầu đặt hàng từ bếp trung tâm."

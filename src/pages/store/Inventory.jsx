@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useLocation } from "react-router-dom";
@@ -6,26 +6,34 @@ import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { DataTable, Badge, Button, Modal } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
+import storeService from "../../services/storeService";
 
 export default function StoreInventory() {
   const { user } = useAuth();
   const {
-    storeInventory,
-    updateStoreInventory,
-    addAuditLog,
     formatDate,
     isExpiringSoon,
     isExpired,
   } = useData();
   const location = useLocation();
 
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [confirmDispose, setConfirmDispose] = useState(null);
 
-  // If rendered under /store, filter by user's store. Under /manager, show all.
-  const isManagerView = location.pathname.startsWith("/manager");
-  const data = isManagerView
-    ? storeInventory
-    : storeInventory.filter((i) => i.storeId === user.store);
+  useEffect(() => {
+    const fetchInventory = async () => {
+      try {
+        const resp = await storeService.getStoreInventory({ size: 100 });
+        setData(resp.content || []);
+      } catch (err) {
+        toast.error("Không thể tải tồn kho");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchInventory();
+  }, []);
 
   const handleDispose = (item) => {
     setConfirmDispose(item);

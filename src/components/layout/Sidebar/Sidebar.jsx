@@ -34,7 +34,7 @@ const NAV_CONFIG = {
       items: [
         { to: "/store/dashboard", icon: LayoutDashboard, label: "Tổng quan" },
         { to: "/store/orders", icon: ShoppingCart, label: "Đơn đặt hàng" },
-        { to: "/store/orders/new", icon: ClipboardList, label: "Tạo đơn mới" },
+        { to: "/store/orders/new", icon: ClipboardList, label: "Yêu cầu đặt hàng" },
         { to: "/store/inventory", icon: Package, label: "Tồn kho" },
         { to: "/store/sales", icon: DollarSign, label: "Ghi nhận bán hàng" },
         { to: "/store/receiving", icon: Receipt, label: "Nhận hàng" },
@@ -158,6 +158,7 @@ export default function Sidebar() {
             {section.items.map((item) => (
               <NavLink
                 key={item.to}
+                end
                 to={item.to}
                 className={({ isActive }) =>
                   `sidebar__nav-item ${isActive ? "sidebar__nav-item--active" : ""}`

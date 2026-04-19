@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle, Star } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
@@ -6,73 +6,51 @@ import { Card, Button, Badge } from "../../components/ui";
 import { Textarea } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
+import storeService from "../../services/storeService";
 
 export default function ReceiveGoods() {
   const { user } = useAuth();
   const {
-    orders,
-    updateOrder,
-    storeInventory,
-    updateStoreInventory,
-    addStoreInventoryItem,
-    addAuditLog,
     STATUS_LABELS,
     STATUS_COLORS,
     formatCurrency,
     formatDate,
   } = useData();
+  
+  const [deliveries, setDeliveries] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState({});
   const [confirmedOrders, setConfirmedOrders] = useState([]);
 
-  const shippingOrders = orders.filter(
-    (o) =>
-      o.storeId === user.store &&
-      (o.status === "shipping" || o.status === "delivered"),
-  );
+  useEffect(() => {
+    const fetchDeliveries = async () => {
+      try {
+        setLoading(true);
+        // Lấy danh sách giao hàng đang đợi nhận (SHIPPING)
+        const resp = await storeService.getDeliveries({ status: "SHIPPING", size: 50 });
+        setDeliveries(resp.content || []);
+      } catch (error) {
+        toast.error("Không thể tải danh sách đơn giao hàng");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDeliveries();
+  }, []);
 
-  const handleConfirm = (orderId) => {
-    const order = orders.find((o) => o.id === orderId);
+  const handleConfirm = async (deliveryId, orderId) => {
     const orderFeedback = feedback[orderId] || {};
-    updateOrder(orderId, {
-      status: "delivered",
-      qualityRating: orderFeedback.rating || null,
-      qualityComment: orderFeedback.comment || null,
-    });
-
-    // Auto-add received items to store inventory
-    if (order) {
-      order.items.forEach((item) => {
-        const existing = storeInventory.find(
-          (i) => i.storeId === user.store && i.productId === item.productId,
-        );
-        if (existing) {
-          updateStoreInventory(existing.id, {
-            quantity: existing.quantity + item.quantity,
-          });
-        } else {
-          addStoreInventoryItem({
-            id: Date.now() + Math.random(),
-            storeId: user.store,
-            productId: item.productId,
-            productName: item.productName,
-            quantity: item.quantity,
-            unit: item.unit,
-            minStock: 10,
-            expiryDate: null,
-          });
-        }
+    try {
+      await storeService.confirmReceipt(deliveryId, {
+        notes: orderFeedback.comment || "Đã nhận đủ",
+        temperatureOk: true,
+        receiverName: user?.name || "Store Staff",
       });
-
-      addAuditLog(
-        "goods_received",
-        user.name,
-        `Nhận hàng đơn ${orderId} (${order.items.length} SP) - tồn kho đã cập nhật`,
-        "inventory",
-      );
+      setConfirmedOrders((prev) => [...prev, orderId]);
+      toast.success(`Đã xác nhận nhận hàng cho đơn ${orderId}! Tồn kho đã được cập nhật.`);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Xác nhận nhận hàng thất bại");
     }
-
-    setConfirmedOrders((prev) => [...prev, orderId]);
-    toast.success(`Đã xác nhận nhận hàng cho đơn ${orderId}! Tồn kho đã được cập nhật.`);
   };
 
   return (
@@ -87,7 +65,7 @@ export default function ReceiveGoods() {
           gap: "var(--space-4)",
         }}
       >
-        {shippingOrders.length === 0 && (
+        {deliveries.length === 0 && !loading && (
           <Card>
             <p
               style={{
@@ -100,8 +78,13 @@ export default function ReceiveGoods() {
             </p>
           </Card>
         )}
-        {shippingOrders.map((order) => (
-          <Card key={order.id} className="animate-fade-in-up">
+        {deliveries.length > 0 && deliveries.map((delivery) => {
+          const orderId = delivery.orderId || delivery.id; // API structure might be direct or nested
+          const orderTotal = delivery.total || 0;
+          const items = delivery.items || [];
+          const status = delivery.status?.toLowerCase() || "shipping";
+          return (
+            <Card key={delivery.id} className="animate-fade-in-up">
             <div
               style={{
                 display: "flex",
@@ -127,21 +110,21 @@ export default function ReceiveGoods() {
                       fontSize: "15px",
                     }}
                   >
-                    {order.id}
+                    {orderId}
                   </span>
-                  <Badge variant={STATUS_COLORS[order.status]} dot>
-                    {STATUS_LABELS[order.status]}
+                  <Badge variant={STATUS_COLORS[status] || "info"} dot>
+                    {STATUS_LABELS[status] || "Đang giao"}
                   </Badge>
                 </div>
                 <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-                  Ngày yêu cầu: {formatDate(order.requestedDate)}
+                  Mã vận chuyển: {delivery.id}
                 </p>
               </div>
               <span
                 className="font-mono"
                 style={{ fontWeight: 600, fontSize: "15px" }}
               >
-                {formatCurrency(order.total)}
+                {formatCurrency(orderTotal)}
               </span>
             </div>
 
@@ -153,7 +136,7 @@ export default function ReceiveGoods() {
                 marginBottom: "12px",
               }}
             >
-              {order.items.map((item, i) => (
+              {items.map((item, i) => (
                 <div
                   key={i}
                   style={{
@@ -171,8 +154,8 @@ export default function ReceiveGoods() {
               ))}
             </div>
 
-            {order.status === "shipping" &&
-              !confirmedOrders.includes(order.id) && (
+            {status === "shipping" &&
+              !confirmedOrders.includes(orderId) && (
                 <div
                   style={{
                     display: "flex",
@@ -204,7 +187,7 @@ export default function ReceiveGoods() {
                         <Star
                           size={20}
                           fill={
-                            star <= (feedback[order.id]?.rating || 0)
+                            star <= (feedback[orderId]?.rating || 0)
                               ? "#E9C46A"
                               : "none"
                           }
@@ -212,7 +195,7 @@ export default function ReceiveGoods() {
                           onClick={() =>
                             setFeedback((prev) => ({
                               ...prev,
-                              [order.id]: { ...prev[order.id], rating: star },
+                              [orderId]: { ...prev[orderId], rating: star },
                             }))
                           }
                         />
@@ -221,12 +204,12 @@ export default function ReceiveGoods() {
                   </div>
                   <Textarea
                     placeholder="Nhận xét về chất lượng hàng hóa..."
-                    value={feedback[order.id]?.comment || ""}
+                    value={feedback[orderId]?.comment || ""}
                     onChange={(e) =>
                       setFeedback((prev) => ({
                         ...prev,
-                        [order.id]: {
-                          ...prev[order.id],
+                        [orderId]: {
+                          ...prev[orderId],
                           comment: e.target.value,
                         },
                       }))
@@ -234,15 +217,15 @@ export default function ReceiveGoods() {
                   />
                   <Button
                     icon={CheckCircle}
-                    onClick={() => handleConfirm(order.id)}
+                    onClick={() => handleConfirm(delivery.id, orderId)}
                   >
                     Xác nhận nhận hàng
                   </Button>
                 </div>
               )}
 
-            {(order.status === "delivered" ||
-              confirmedOrders.includes(order.id)) && (
+            {(status === "delivered" ||
+              confirmedOrders.includes(orderId)) && (
               <div
                 style={{
                   display: "flex",
@@ -254,15 +237,14 @@ export default function ReceiveGoods() {
                 <Badge variant="success" dot>
                   Đã xác nhận nhận hàng
                 </Badge>
-                {(order.qualityRating || feedback[order.id]?.rating) && (
+                {(feedback[orderId]?.rating) && (
                   <span style={{ display: "flex", gap: "2px" }}>
                     {[1, 2, 3, 4, 5].map((s) => (
                       <Star
                         key={s}
                         size={14}
                         fill={
-                          s <=
-                          (order.qualityRating || feedback[order.id]?.rating)
+                          s <= (feedback[orderId]?.rating || 0)
                             ? "#E9C46A"
                             : "none"
                         }
@@ -274,7 +256,8 @@ export default function ReceiveGoods() {
               </div>
             )}
           </Card>
-        ))}
+        );
+        })}
       </div>
     </PageWrapper>
   );

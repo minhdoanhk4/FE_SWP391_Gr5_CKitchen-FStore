@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -13,6 +14,7 @@ import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { Card, Badge, Button } from "../../components/ui";
 import { useData } from "../../contexts/DataContext";
+import storeService from "../../services/storeService";
 import "./OrderDetail.css";
 
 const TIMELINE_STEPS = [
@@ -37,7 +39,6 @@ export default function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const {
-    orders,
     products,
     updateOrder,
     STATUS_LABELS,
@@ -46,7 +47,27 @@ export default function OrderDetail() {
     formatDate,
     formatDateTime,
   } = useData();
-  const order = orders.find((o) => o.id === id);
+
+  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDetail = async () => {
+      try {
+        const resp = await storeService.getOrderById(id);
+        setOrder(resp);
+      } catch (err) {
+        toast.error("Không tìm thấy thông tin đơn hàng");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDetail();
+  }, [id]);
+
+  if (loading) {
+    return <PageWrapper title="Đang tải..." />;
+  }
 
   if (!order) {
     return (
@@ -75,7 +96,8 @@ export default function OrderDetail() {
     );
   }
 
-  const currentStepIndex = STATUS_ORDER.indexOf(order.status);
+  const orderStatus = order.status?.toLowerCase() || '';
+  const currentStepIndex = STATUS_ORDER.indexOf(orderStatus);
 
   const handleCancel = () => {
     updateOrder(order.id, { status: "cancelled" });
@@ -95,8 +117,8 @@ export default function OrderDetail() {
       {/* Status & Timeline */}
       <Card className="order-detail__timeline-card">
         <div className="order-detail__status-bar">
-          <Badge variant={STATUS_COLORS[order.status]} dot>
-            {STATUS_LABELS[order.status]}
+          <Badge variant={STATUS_COLORS[orderStatus]} dot>
+            {STATUS_LABELS[orderStatus]}
           </Badge>
           {order.priority === "high" && (
             <Badge variant="danger">Ưu tiên cao</Badge>

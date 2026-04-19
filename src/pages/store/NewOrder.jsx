@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Minus, ShoppingCart, Trash2 } from "lucide-react";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
@@ -6,13 +6,15 @@ import { Button, Card, Badge } from "../../components/ui";
 import { Input, Textarea } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
+import storeService from "../../services/storeService";
 import toast from "react-hot-toast";
 import "./NewOrder.css";
 
 export default function NewOrder() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { products, stores, orders, addOrder, formatCurrency } = useData();
+  const { stores, orders, formatCurrency } = useData();
+  const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [notes, setNotes] = useState("");
   const [requestedDate, setRequestedDate] = useState("");
@@ -25,6 +27,13 @@ export default function NewOrder() {
   }, [requestedDate]);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    storeService.getAvailableProducts({ size: 100 })
+      .then(res => setProducts(res.content || []))
+      .catch(() => toast.error("Không thể lấy danh sách sản phẩm"));
+  }, []);
 
   const categories = ["all", ...new Set(products.map((p) => p.category))];
   const filtered =
@@ -38,7 +47,7 @@ export default function NewOrder() {
       if (existing) {
         return prev.map((item) =>
           item.productId === product.id
-            ? { ...item, quantity: item.quantity + 10 }
+            ? { ...item, quantity: item.quantity + 1 }
             : item,
         );
       }
@@ -47,7 +56,7 @@ export default function NewOrder() {
         {
           productId: product.id,
           productName: product.name,
-          quantity: 10,
+          quantity: 1,
           unit: product.unit,
           price: product.price,
         },
@@ -82,34 +91,26 @@ export default function NewOrder() {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return;
-    const store = stores.find((s) => s.id === user.store);
-    const newOrder = {
-      id: `DH${String(orders.length + 1).padStart(3, "0")}`,
-      storeId: user.store,
-      storeName: store?.name || user.store,
-      kitchenId: "BT001",
-      status: "pending",
-      priority,
-      createdAt: new Date().toISOString(),
-      requestedDate,
-      notes,
-      items: cart.map((item) => ({
-        productId: item.productId,
-        productName: item.productName,
-        quantity: item.quantity,
-        unit: item.unit,
-        unitPrice: item.price,
-      })),
-      createdBy: user.name,
-      total,
-    };
-    addOrder(newOrder);
-    toast.success(
-      `Đơn hàng đã được tạo thành công! Tổng: ${formatCurrency(total)}`,
-    );
-    navigate("/store/orders");
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        requestedDate,
+        notes,
+        items: cart.map(i => ({
+          productId: i.productId,
+          quantity: i.quantity
+        }))
+      };
+      await storeService.createOrder(payload);
+      toast.success(`Đơn hàng đã được tạo thành công! Tổng: ${formatCurrency(total)}`);
+      navigate("/store/orders");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Tạo đơn hàng thất bại");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -253,26 +254,32 @@ export default function NewOrder() {
                         {formatCurrency(item.price)} / {item.unit}
                       </p>
                     </div>
-                    <div className="cart-item__controls">
-                      <button
-                        className="cart-qty-btn"
-                        onClick={() => updateQuantity(item.productId, -5)}
-                      >
-                        <Minus size={14} />
-                      </button>
-                      <span className="cart-qty-val">{item.quantity}</span>
-                      <button
-                        className="cart-qty-btn"
-                        onClick={() => updateQuantity(item.productId, 5)}
-                      >
-                        <Plus size={14} />
-                      </button>
-                      <button
-                        className="cart-remove-btn"
+                    <div className="cart-item-actions">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={Minus}
+                        iconOnly
+                        onClick={() => updateQuantity(item.productId, -1)}
+                      />
+                      <span className="cart-item-qty font-mono">
+                        {item.quantity}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={Plus}
+                        iconOnly
+                        onClick={() => updateQuantity(item.productId, 1)}
+                      />
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        icon={Trash2}
+                        iconOnly
                         onClick={() => removeFromCart(item.productId)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                        style={{ marginLeft: "auto" }}
+                      />
                     </div>
                     <p className="cart-item__subtotal">
                       {formatCurrency(item.price * item.quantity)}
@@ -290,15 +297,15 @@ export default function NewOrder() {
               }}
             >
               <Input
-                label="Ngày yêu cầu giao"
                 type="date"
+                label="Ngày yêu cầu giao (*)"
                 value={requestedDate}
+                min={new Date().toISOString().split("T")[0]}
                 onChange={(e) => {
                   setRequestedDate(e.target.value);
                   if (errors.requestedDate)
                     setErrors((prev) => ({ ...prev, requestedDate: null }));
                 }}
-                required
                 error={errors.requestedDate}
               />
               {requestedDate && (
@@ -347,12 +354,13 @@ export default function NewOrder() {
                   {formatCurrency(total)}
                 </span>
               </div>
-              <Button
-                style={{ width: "100%" }}
-                disabled={cart.length === 0}
+              <Button 
+                variant="primary" 
                 onClick={handleSubmit}
+                disabled={isSubmitting || cart.length === 0}
+                style={{ width: "100%" }}
               >
-                Gửi đơn hàng
+                {isSubmitting ? "Đang gửi..." : "Gửi yêu cầu Bếp Trung Tâm"}
               </Button>
             </div>
           </Card>

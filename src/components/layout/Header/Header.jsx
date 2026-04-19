@@ -40,6 +40,14 @@ const ACTIVITY_ICONS = {
   order_delivered: Package,
 };
 
+const ROLE_NOTIF_FILTER = {
+  STORE_STAFF: ['order_confirmed', 'delivery_shipped', 'stock_low', 'order_delivered'],
+  KITCHEN_STAFF: ['order_created', 'order_confirmed', 'production_started', 'stock_low', 'batch_completed'],
+  SUPPLY_COORDINATOR: ['delivery_shipped', 'issue_reported', 'batch_completed', 'order_delivered'],
+  MANAGER: ['order_created', 'production_started', 'issue_reported', 'stock_low'],
+  ADMIN: ['issue_reported', 'order_created', 'stock_low'], // ADMIN sees important system alerts
+};
+
 export default function Header() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -64,14 +72,22 @@ export default function Header() {
     isLast: i === parts.length - 1,
   }));
 
-  const unreadCount = recentActivity.length - readNotifs.length;
+  const allowedActivityTypes = ROLE_NOTIF_FILTER[user?.role] || [];
+  const notifications = user?.role === 'ADMIN' 
+    ? recentActivity 
+    : recentActivity.filter(act => allowedActivityTypes.includes(act.type));
+
+  const unreadCount = notifications.filter(act => !readNotifs.includes(act.id)).length;
 
   const handleMarkRead = (id) => {
     setReadNotifs(prev => prev.includes(id) ? prev : [...prev, id]);
   };
 
   const handleMarkAllRead = () => {
-    setReadNotifs(recentActivity.map(a => a.id));
+    setReadNotifs(prev => {
+      const newIds = notifications.map(a => a.id).filter(id => !prev.includes(id));
+      return [...prev, ...newIds];
+    });
   };
 
   // Search results
@@ -217,7 +233,12 @@ export default function Header() {
                 </button>
               </div>
               <div className="notif-dropdown__list">
-                {recentActivity.map(act => {
+                {notifications.length === 0 ? (
+                  <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                    Không có thông báo nào.
+                  </div>
+                ) : (
+                  notifications.map(act => {
                   const Icon = ACTIVITY_ICONS[act.type] || Bell;
                   const isRead = readNotifs.includes(act.id);
                   return (
@@ -236,7 +257,7 @@ export default function Header() {
                       {!isRead && <span className="notif-item__unread-dot" />}
                     </div>
                   );
-                })}
+                }))}
               </div>
             </div>
           )}
