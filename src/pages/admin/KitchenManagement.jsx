@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Home } from "lucide-react";
+import { Plus, Edit, ChefHat } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { DataTable, Badge, Button, Modal, Input, Select, Card } from "../../components/ui";
@@ -11,43 +11,31 @@ const STATUS_OPTIONS = [
   { value: "INACTIVE", label: "Vô hiệu/Bảo trì" },
 ];
 
-export default function StoreManagement() {
+export default function KitchenManagement() {
   const { user } = useAuth();
-  const [stores, setStores] = useState([]);
-  const [managers, setManagers] = useState([]);
+  const [kitchens, setKitchens] = useState([]);
   const [loading, setLoading] = useState(true);
-  
   const [showModal, setShowModal] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [viewItem, setViewItem] = useState(null);
-  
   const [form, setForm] = useState({
     id: "",
     name: "",
     address: "",
     phone: "",
-    manager: "",
     status: "ACTIVE",
+    capacity: 500,
   });
   const [errors, setErrors] = useState({});
 
-  const fetchData = async () => {
+  const fetchKitchens = async () => {
     setLoading(true);
     try {
-      const [storesData, usersData] = await Promise.all([
-        adminService.catalog.getStores(),
-        adminService.users.getAll({ roleName: "MANAGER" }),
-      ]);
-      setStores(storesData.content || []);
-      // Map users to select options
-      const managerList = (usersData.content || []).map(u => ({
-        value: u.username,
-        label: `${u.fullName} (${u.username})`
-      }));
-      setManagers(managerList);
+      const data = await adminService.catalog.getKitchens();
+      setKitchens(data.content || []);
     } catch (err) {
-      toast.error("Không thể tải dữ liệu");
+      toast.error("Không thể tải danh sách bếp");
       console.error(err);
     } finally {
       setLoading(false);
@@ -55,25 +43,39 @@ export default function StoreManagement() {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchKitchens();
   }, []);
 
   const handleOpenAdd = () => {
     setEditItem(null);
-    // Auto-generate ID: ST + (max_number + 1)
-    const maxNum = stores.reduce((max, s) => {
-      const num = parseInt(s.id?.replace("ST", "") || "0");
+    // Auto-generate ID: KT + (max_number + 1)
+    const maxNum = kitchens.reduce((max, k) => {
+      const num = parseInt(k.id?.replace("KT", "") || "0");
       return !isNaN(num) ? Math.max(max, num) : max;
     }, 0);
-    const nextId = `ST${String(maxNum + 1).padStart(3, "0")}`;
+    const nextId = `KT${String(maxNum + 1).padStart(3, "0")}`;
 
     setForm({
       id: nextId,
       name: "",
       address: "",
       phone: "",
-      manager: "",
       status: "ACTIVE",
+      capacity: 500,
+    });
+    setErrors({});
+    setShowModal(true);
+  };
+
+  const handleEdit = (item) => {
+    setEditItem(item);
+    setForm({
+      id: item.id,
+      name: item.name,
+      address: item.address,
+      phone: item.phone,
+      status: item.status,
+      capacity: item.capacity || 0,
     });
     setErrors({});
     setShowModal(true);
@@ -84,24 +86,9 @@ export default function StoreManagement() {
     setShowDetail(true);
   };
 
-  const handleEdit = (item) => {
-    setEditItem(item);
-    setForm({
-      id: item.id,
-      name: item.name,
-      address: item.address,
-      phone: item.phone,
-      manager: item.manager,
-      status: item.status,
-    });
-    setErrors({});
-    setShowModal(true);
-  };
-
   const validate = () => {
     const errs = {};
-    if (!form.id?.trim() && !editItem) errs.id = "Vui lòng nhập mã định danh";
-    if (!form.name?.trim()) errs.name = "Vui lòng nhập tên cửa hàng";
+    if (!form.name?.trim()) errs.name = "Vui lòng nhập tên bếp";
     if (!form.address?.trim()) errs.address = "Vui lòng nhập địa chỉ";
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -111,14 +98,14 @@ export default function StoreManagement() {
     if (!validate()) return;
     try {
       if (editItem) {
-        await adminService.catalog.updateStore(editItem.id, form);
-        toast.success("Cập nhật cửa hàng thành công");
+        await adminService.catalog.updateKitchen(editItem.id, form);
+        toast.success("Cập nhật bếp thành công");
       } else {
-        await adminService.catalog.createStore({ ...form, openDate: new Date().toISOString().split("T")[0] });
-        toast.success("Thêm cửa hàng thành công");
+        await adminService.catalog.createKitchen(form);
+        toast.success("Thêm bếp thành công");
       }
       setShowModal(false);
-      fetchData();
+      fetchKitchens();
     } catch (err) {
       toast.error(err.response?.data?.message || "Có lỗi xảy ra");
     }
@@ -131,9 +118,13 @@ export default function StoreManagement() {
       width: "80px",
       render: (r) => <span className="font-mono">{r.id}</span>,
     },
-    { header: "Tên cửa hàng", accessor: "name", sortable: true },
+    { header: "Tên bếp", accessor: "name", sortable: true },
     { header: "Địa chỉ", accessor: "address" },
-    { header: "Quản lý", accessor: "manager" },
+    {
+      header: "Công suất",
+      accessor: "capacity",
+      render: (r) => `${r.capacity} phần/ngày`,
+    },
     {
       header: "Trạng thái",
       accessor: "status",
@@ -163,27 +154,26 @@ export default function StoreManagement() {
 
   return (
     <PageWrapper
-      title="Quản lý Cửa hàng Franchise"
-      subtitle="Danh mục các điểm bán hàng trong hệ thống (Click hàng để xem chi tiết)"
+      title="Quản lý Bếp Trung Tâm"
+      subtitle="Hệ thống cơ sở sản xuất tập trung (Click hàng để xem chi tiết)"
       actions={
-        <Button icon={Plus} onClick={handleOpenAdd}>Thêm cửa hàng</Button>
+        <Button icon={Plus} onClick={handleOpenAdd}>Thêm bếp mới</Button>
       }
     >
       <Card>
         <DataTable
           columns={columns}
-          data={stores}
+          data={kitchens}
           loading={loading}
-          searchPlaceholder="Tìm cửa hàng..."
+          searchPlaceholder="Tìm kiếm bếp..."
           onRowClick={handleViewDetails}
         />
       </Card>
 
-      {/* Edit Modal */}
       <Modal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        title={editItem ? `Sửa: ${editItem.name}` : "Thêm cửa hàng mới"}
+        title={editItem ? `Sửa: ${editItem.name}` : "Thêm bếp mới"}
         size="lg"
         footer={
           <>
@@ -193,19 +183,18 @@ export default function StoreManagement() {
         }
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          {/* Identifier is now auto-generated and read-only */}
           <Input
-            label="Mã định danh (Tự động)"
+            label="Mã bếp (Tự động)"
             value={form.id}
             disabled
             placeholder="Sẽ được tự động tạo..."
           />
           <Input
-            label="Tên cửa hàng"
+            label="Tên bếp"
             required
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            placeholder="CKitchen..."
+            placeholder="Bếp Kizuna..."
             error={errors.name}
           />
           <Input
@@ -223,12 +212,11 @@ export default function StoreManagement() {
               value={form.phone}
               onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
             />
-            <Select
-              label="Quản lý cửa hàng"
-              options={managers}
-              value={form.manager}
-              onChange={(e) => setForm((f) => ({ ...f, manager: e.target.value }))}
-              placeholder="Chọn quản lý..."
+            <Input
+              label="Công suất (phần/ngày)"
+              type="number"
+              value={form.capacity}
+              onChange={(e) => setForm((f) => ({ ...f, capacity: parseInt(e.target.value) }))}
             />
           </div>
 
@@ -245,14 +233,14 @@ export default function StoreManagement() {
       <Modal
         isOpen={showDetail}
         onClose={() => setShowDetail(false)}
-        title={`Chi tiết cửa hàng: ${viewItem?.name}`}
+        title={`Chi tiết bếp: ${viewItem?.name}`}
         size="lg"
       >
         {viewItem && (
           <div style={{ display: "grid", gap: "24px" }}>
             <div className="grid grid--2">
                <div>
-                  <label style={{ fontSize: "12px", color: "var(--text-muted)" }}>Mã cửa hàng</label>
+                  <label style={{ fontSize: "12px", color: "var(--text-muted)" }}>Mã bếp</label>
                   <p style={{ fontWeight: 600 }}>{viewItem.id}</p>
                </div>
                <div>
@@ -264,17 +252,17 @@ export default function StoreManagement() {
                   <p>{viewItem.address}</p>
                </div>
                <div>
-                  <label style={{ fontSize: "12px", color: "var(--text-muted)" }}>Liên hệ</label>
-                  <p>{viewItem.phone || "N/A"}</p>
+                  <label style={{ fontSize: "12px", color: "var(--text-muted)" }}>Công suất</label>
+                  <p>{viewItem.capacity} phần/ngày</p>
                </div>
                <div>
-                  <label style={{ fontSize: "12px", color: "var(--text-muted)" }}>Quản lý</label>
-                  <p>{viewItem.manager || "Chưa có"}</p>
+                  <label style={{ fontSize: "12px", color: "var(--text-muted)" }}>Liên hệ</label>
+                  <p>{viewItem.phone || "N/A"}</p>
                </div>
             </div>
             
             <div style={{ borderTop: "1px solid var(--surface-border)", paddingTop: "16px" }}>
-               <h4 style={{ marginBottom: "12px" }}>Lịch sử hoạt động & Đơn hàng</h4>
+               <h4 style={{ marginBottom: "12px" }}>Kế hoạch sản xuất & Lịch sử</h4>
                <div style={{ 
                  padding: "40px", 
                  textAlign: "center", 
@@ -282,7 +270,7 @@ export default function StoreManagement() {
                  borderRadius: "var(--radius-md)" 
                }}>
                   <p style={{ color: "var(--text-muted)" }}>
-                    Tính năng xem lịch sử đơn hàng chi tiết đang được đồng bộ từ Backend...
+                    Dữ liệu hoạt động chi tiết của bếp đang được đồng bộ từ Backend...
                   </p>
                </div>
             </div>

@@ -63,17 +63,24 @@ function extractRole(data) {
   if (data.userRole) return data.userRole;
   // Array field — take first element
   if (Array.isArray(data.roles) && data.roles.length)
-    return typeof data.roles[0] === "string" ? data.roles[0] : data.roles[0]?.name ?? data.roles[0]?.authority;
+    return typeof data.roles[0] === "string"
+      ? data.roles[0]
+      : (data.roles[0]?.name ?? data.roles[0]?.authority);
   // Spring Security authorities array: [{ authority: "ROLE_MANAGER" }]
   if (Array.isArray(data.authorities) && data.authorities.length)
-    return typeof data.authorities[0] === "string" ? data.authorities[0] : data.authorities[0]?.authority;
+    return typeof data.authorities[0] === "string"
+      ? data.authorities[0]
+      : data.authorities[0]?.authority;
   return null;
 }
 
 function normalizeRole(role) {
   if (!role) return null;
   // Strip "ROLE_" prefix if present (Spring Security style)
-  return role.toString().toUpperCase().replace(/^ROLE_/, "");
+  return role
+    .toString()
+    .toUpperCase()
+    .replace(/^ROLE_/, "");
 }
 
 const initialState = { user: null, isAuthenticated: false };
@@ -139,7 +146,12 @@ export function AuthProvider({ children }) {
 
     const user = {
       id: profile.id ?? profile.userId ?? tokenData.id,
-      name: profile.name ?? profile.fullName ?? profile.username ?? tokenData.name ?? username,
+      name:
+        profile.name ??
+        profile.fullName ??
+        profile.username ??
+        tokenData.name ??
+        username,
       email: profile.email ?? tokenData.email ?? null,
       role,
       avatar: profile.avatar ?? tokenData.avatar ?? null,
@@ -150,12 +162,12 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    // Clear local state immediately so UI redirects right away
+    // Fire server logout first so the request interceptor still has the token
+    authService.logout().catch(() => {});
+    // Then clear local state
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     dispatch({ type: "LOGOUT" });
-    // Notify server in background — ignore result
-    authService.logout().catch(() => {});
   };
 
   return (

@@ -1,253 +1,272 @@
-import { useState } from "react";
-import { Truck, Package, MapPin, Calendar } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  Truck,
+  Package,
+  MapPin,
+  Calendar,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  Plus,
+  Loader2,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
-import { Card, Badge, Button } from "../../components/ui";
-import { useData } from "../../contexts/DataContext";
+import {
+  Card,
+  Badge,
+  Button,
+  Modal,
+  Input,
+  Textarea,
+  Select,
+} from "../../components/ui";
+import supplyService from "../../services/supplyService";
+
+const DELIVERY_STATUS_LABELS = {
+  ASSIGNED: "Đã lên lịch",
+  SHIPPING: "Đang giao",
+  DELAYED: "Bị trễ",
+  DELIVERED: "Đã giao",
+  CANCELLED: "Đã hủy",
+};
+
+const DELIVERY_STATUS_COLORS = {
+  ASSIGNED: "info",
+  SHIPPING: "accent",
+  DELAYED: "warning",
+  DELIVERED: "success",
+  CANCELLED: "danger",
+};
+
+const DELIVERY_STATUS_ICONS = {
+  ASSIGNED: Clock,
+  SHIPPING: Truck,
+  DELAYED: AlertTriangle,
+  DELIVERED: CheckCircle,
+  CANCELLED: XCircle,
+};
+
+const statusTabs = [
+  { value: "", label: "Tất cả" },
+  { value: "ASSIGNED", label: "Đã lên lịch" },
+  { value: "SHIPPING", label: "Đang giao" },
+  { value: "DELAYED", label: "Bị trễ" },
+  { value: "DELIVERED", label: "Đã giao" },
+  { value: "CANCELLED", label: "Đã hủy" },
+];
+
+const NEXT_STATUS_OPTIONS = {
+  ASSIGNED: [
+    { value: "SHIPPING", label: "Bắt đầu giao" },
+    { value: "CANCELLED", label: "Hủy" },
+  ],
+  SHIPPING: [
+    { value: "DELIVERED", label: "Đã giao thành công" },
+    { value: "DELAYED", label: "Bị trễ" },
+    { value: "CANCELLED", label: "Hủy" },
+  ],
+  DELAYED: [
+    { value: "SHIPPING", label: "Tiếp tục giao" },
+    { value: "CANCELLED", label: "Hủy" },
+  ],
+};
+
+function formatDateTime(d) {
+  if (!d) return "—";
+  return new Date(d).toLocaleString("vi-VN");
+}
 
 export default function DeliverySchedule() {
-  const {
-    orders,
-    updateOrder,
-    STATUS_LABELS,
-    STATUS_COLORS,
-    formatCurrency,
-    formatDate,
-    formatDateTime,
-  } = useData();
-  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [deliveries, setDeliveries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
-  const readyOrders = orders.filter((o) => o.status === "ready");
-  const shippingOrders = orders.filter((o) => o.status === "shipping");
+  // Create delivery modal
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    orderId: "",
+    status: "ASSIGNED",
+    assignedAt: "",
+    notes: "",
+  });
 
-  const handleAssignShipping = (order) => {
-    updateOrder(order.id, { status: "shipping" });
-    setSelectedOrder(null);
-    toast.success(`${order.id} đã chuyển sang trạng thái giao hàng`);
+  // Update status modal
+  const [updateTarget, setUpdateTarget] = useState(null);
+  const [updateStatus, setUpdateStatus] = useState("");
+  const [updateNotes, setUpdateNotes] = useState("");
+
+  const fetchDeliveries = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await supplyService.getDeliveries({
+        status: statusFilter || undefined,
+        page,
+        size: 20,
+      });
+      setDeliveries(data.content || data || []);
+      setTotalPages(data.totalPages || 0);
+    } catch (err) {
+      toast.error("Không thể tải danh sách giao hàng");
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter, page]);
+
+  useEffect(() => {
+    fetchDeliveries();
+  }, [fetchDeliveries]);
+
+  // ── Create delivery ─────────────────────────────────────────────────────
+  const handleCreate = async () => {
+    if (!createForm.orderId.trim()) {
+      toast.error("Vui lòng nhập mã đơn hàng");
+      return;
+    }
+    try {
+      await supplyService.createDelivery({
+        orderId: createForm.orderId.trim(),
+        status: createForm.status,
+        assignedAt: createForm.assignedAt || undefined,
+        notes: createForm.notes || undefined,
+      });
+      toast.success("Đã tạo lịch giao hàng!");
+      setShowCreate(false);
+      setCreateForm({
+        orderId: "",
+        status: "ASSIGNED",
+        assignedAt: "",
+        notes: "",
+      });
+      fetchDeliveries();
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || "Không thể tạo lịch giao hàng",
+      );
+    }
   };
 
-  const progressWidth = (status) => {
-    if (status === "ready") return "60%";
-    if (status === "shipping") return "80%";
-    return "40%";
+  // ── Update status ───────────────────────────────────────────────────────
+  const openUpdate = (delivery) => {
+    setUpdateTarget(delivery);
+    setUpdateStatus("");
+    setUpdateNotes("");
   };
+
+  const handleUpdateStatus = async () => {
+    if (!updateTarget || !updateStatus) {
+      toast.error("Vui lòng chọn trạng thái mới");
+      return;
+    }
+    try {
+      await supplyService.updateDeliveryStatus(
+        updateTarget.deliveryId || updateTarget.id,
+        { status: updateStatus, notes: updateNotes || undefined },
+      );
+      toast.success(
+        `Đã cập nhật trạng thái giao hàng thành ${DELIVERY_STATUS_LABELS[updateStatus]}`,
+      );
+      setUpdateTarget(null);
+      fetchDeliveries();
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || "Không thể cập nhật trạng thái",
+      );
+    }
+  };
+
+  if (loading && deliveries.length === 0) {
+    return (
+      <PageWrapper
+        title="Lịch giao hàng"
+        subtitle="Quản lý và điều phối giao hàng"
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            padding: "60px",
+          }}
+        >
+          <Loader2
+            size={32}
+            className="spin"
+            style={{ color: "var(--primary)" }}
+          />
+        </div>
+      </PageWrapper>
+    );
+  }
 
   return (
     <PageWrapper
       title="Lịch giao hàng"
       subtitle="Quản lý và điều phối giao hàng cho các đơn sẵn sàng"
+      actions={
+        <Button icon={Plus} onClick={() => setShowCreate(true)}>
+          Tạo lịch giao
+        </Button>
+      }
     >
-      {/* Ready to ship section */}
-      <div style={{ marginBottom: "var(--space-6)" }}>
-        <h3
-          style={{
-            fontSize: "var(--text-base)",
-            fontWeight: "var(--font-semibold)",
-            color: "var(--text-primary)",
-            marginBottom: "var(--space-3)",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-          }}
-        >
-          <Package size={18} style={{ color: "var(--primary)" }} />
-          Sẵn sàng giao ({readyOrders.length})
-        </h3>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "var(--space-3)",
-          }}
-        >
-          {readyOrders.map((order) => (
-            <Card key={order.id} hoverable>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "12px",
-                }}
-              >
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "12px" }}
-                >
-                  <span
-                    className="font-mono"
-                    style={{
-                      fontWeight: 700,
-                      color: "var(--primary)",
-                      fontSize: "15px",
-                    }}
-                  >
-                    {order.id}
-                  </span>
-                  <Badge variant={STATUS_COLORS[order.status]} dot>
-                    {STATUS_LABELS[order.status]}
-                  </Badge>
-                  {order.priority === "high" && (
-                    <Badge variant="danger">Gấp</Badge>
-                  )}
-                </div>
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
-                >
-                  <span className="font-mono" style={{ fontWeight: 600 }}>
-                    {formatCurrency(order.total)}
-                  </span>
-                </div>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: "14px",
-                  marginBottom: "12px",
-                }}
-              >
-                <span
-                  style={{ display: "flex", alignItems: "center", gap: "4px" }}
-                >
-                  <MapPin size={14} /> {order.storeName}
-                </span>
-                <span
-                  style={{ display: "flex", alignItems: "center", gap: "4px" }}
-                >
-                  <Calendar size={14} /> Yêu cầu:{" "}
-                  {formatDate(order.requestedDate)}
-                </span>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: "8px",
-                  flexWrap: "wrap",
-                  fontSize: "13px",
-                  color: "var(--text-secondary)",
-                  marginBottom: "12px",
-                }}
-              >
-                {order.items.map((item, i) => (
-                  <span
-                    key={i}
-                    style={{
-                      background: "var(--surface-hover)",
-                      padding: "2px 8px",
-                      borderRadius: "var(--radius-sm)",
-                    }}
-                  >
-                    {item.productName} × {item.quantity}
-                  </span>
-                ))}
-              </div>
-              {order.notes && (
-                <p
-                  style={{
-                    fontSize: "13px",
-                    color: "var(--text-secondary)",
-                    fontStyle: "italic",
-                    marginBottom: "12px",
-                  }}
-                >
-                  {order.notes}
-                </p>
-              )}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div style={{ flex: 1, marginRight: "16px" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      fontSize: "11px",
-                      color: "var(--text-muted)",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    <span>Xác nhận</span>
-                    <span>Sản xuất</span>
-                    <span>Sẵn sàng</span>
-                    <span>Giao hàng</span>
-                    <span>Hoàn thành</span>
-                  </div>
-                  <div
-                    style={{
-                      height: "6px",
-                      background: "var(--surface-hover)",
-                      borderRadius: "3px",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        background:
-                          "linear-gradient(90deg, var(--primary), var(--primary-lighter))",
-                        borderRadius: "3px",
-                        width: progressWidth(order.status),
-                        transition: "width 500ms ease",
-                      }}
-                    />
-                  </div>
-                </div>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  icon={Truck}
-                  onClick={() => handleAssignShipping(order)}
-                >
-                  Giao hàng
-                </Button>
-              </div>
-            </Card>
-          ))}
-          {readyOrders.length === 0 && (
-            <Card>
-              <p
-                style={{
-                  textAlign: "center",
-                  color: "var(--text-muted)",
-                  padding: "20px",
-                }}
-              >
-                Không có đơn nào sẵn sàng giao
-              </p>
-            </Card>
-          )}
-        </div>
+      {/* Status filter tabs */}
+      <div
+        style={{
+          display: "flex",
+          gap: "8px",
+          marginBottom: "20px",
+          flexWrap: "wrap",
+        }}
+      >
+        {statusTabs.map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => {
+              setStatusFilter(tab.value);
+              setPage(0);
+            }}
+            style={{
+              padding: "6px 16px",
+              borderRadius: "var(--radius-full)",
+              border: "1.5px solid",
+              borderColor:
+                statusFilter === tab.value
+                  ? "var(--primary)"
+                  : "var(--surface-border)",
+              background:
+                statusFilter === tab.value
+                  ? "var(--primary-bg)"
+                  : "var(--surface-card)",
+              color:
+                statusFilter === tab.value
+                  ? "var(--primary)"
+                  : "var(--text-secondary)",
+              fontSize: "13px",
+              fontWeight: 500,
+              cursor: "pointer",
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Shipping section */}
-      <div>
-        <h3
-          style={{
-            fontSize: "var(--text-base)",
-            fontWeight: "var(--font-semibold)",
-            color: "var(--text-primary)",
-            marginBottom: "var(--space-3)",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-          }}
-        >
-          <Truck size={18} style={{ color: "var(--info)" }} />
-          Đang giao ({shippingOrders.length})
-        </h3>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "var(--space-3)",
-          }}
-        >
-          {shippingOrders.map((order) => (
-            <Card key={order.id} hoverable>
+      {/* Delivery list */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--space-3)",
+        }}
+      >
+        {deliveries.map((delivery) => {
+          const StatusIcon = DELIVERY_STATUS_ICONS[delivery.status] || Package;
+          const nextOptions = NEXT_STATUS_OPTIONS[delivery.status] || [];
+
+          return (
+            <Card key={delivery.deliveryId || delivery.id} hoverable>
               <div
                 style={{
                   display: "flex",
@@ -259,6 +278,12 @@ export default function DeliverySchedule() {
                 <div
                   style={{ display: "flex", alignItems: "center", gap: "12px" }}
                 >
+                  <StatusIcon
+                    size={18}
+                    style={{
+                      color: `var(--${DELIVERY_STATUS_COLORS[delivery.status] || "text-secondary"})`,
+                    }}
+                  />
                   <span
                     className="font-mono"
                     style={{
@@ -267,63 +292,49 @@ export default function DeliverySchedule() {
                       fontSize: "15px",
                     }}
                   >
-                    {order.id}
+                    {delivery.deliveryId || delivery.id}
                   </span>
-                  <Badge variant={STATUS_COLORS[order.status]} dot>
-                    {STATUS_LABELS[order.status]}
+                  <Badge
+                    variant={
+                      DELIVERY_STATUS_COLORS[delivery.status] || "neutral"
+                    }
+                    dot
+                  >
+                    {DELIVERY_STATUS_LABELS[delivery.status] || delivery.status}
                   </Badge>
-                  {order.priority === "high" && (
-                    <Badge variant="danger">Gấp</Badge>
-                  )}
                 </div>
-                <span className="font-mono" style={{ fontWeight: 600 }}>
-                  {formatCurrency(order.total)}
-                </span>
               </div>
+
               <div
                 style={{
                   display: "flex",
-                  justifyContent: "space-between",
+                  gap: "24px",
                   fontSize: "14px",
-                  marginBottom: "12px",
-                }}
-              >
-                <span
-                  style={{ display: "flex", alignItems: "center", gap: "4px" }}
-                >
-                  <MapPin size={14} /> {order.storeName}
-                </span>
-                <span
-                  style={{ display: "flex", alignItems: "center", gap: "4px" }}
-                >
-                  <Calendar size={14} /> Yêu cầu:{" "}
-                  {formatDate(order.requestedDate)}
-                </span>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: "8px",
-                  flexWrap: "wrap",
-                  fontSize: "13px",
                   color: "var(--text-secondary)",
                   marginBottom: "12px",
+                  flexWrap: "wrap",
                 }}
               >
-                {order.items.map((item, i) => (
+                <span
+                  style={{ display: "flex", alignItems: "center", gap: "4px" }}
+                >
+                  <Package size={14} /> Đơn: {delivery.orderId || "—"}
+                </span>
+                {delivery.assignedAt && (
                   <span
-                    key={i}
                     style={{
-                      background: "var(--surface-hover)",
-                      padding: "2px 8px",
-                      borderRadius: "var(--radius-sm)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
                     }}
                   >
-                    {item.productName} × {item.quantity}
+                    <Calendar size={14} /> Lên lịch:{" "}
+                    {formatDateTime(delivery.assignedAt)}
                   </span>
-                ))}
+                )}
               </div>
-              {order.notes && (
+
+              {delivery.notes && (
                 <p
                   style={{
                     fontSize: "13px",
@@ -332,80 +343,170 @@ export default function DeliverySchedule() {
                     marginBottom: "12px",
                   }}
                 >
-                  {order.notes}
+                  {delivery.notes}
                 </p>
               )}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      fontSize: "11px",
-                      color: "var(--text-muted)",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    <span>Xác nhận</span>
-                    <span>Sản xuất</span>
-                    <span>Sẵn sàng</span>
-                    <span>Giao hàng</span>
-                    <span>Hoàn thành</span>
-                  </div>
-                  <div
-                    style={{
-                      height: "6px",
-                      background: "var(--surface-hover)",
-                      borderRadius: "3px",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        background:
-                          "linear-gradient(90deg, var(--primary), var(--primary-lighter))",
-                        borderRadius: "3px",
-                        width: progressWidth(order.status),
-                        transition: "width 500ms ease",
+
+              {nextOptions.length > 0 && (
+                <div style={{ display: "flex", gap: "8px" }}>
+                  {nextOptions.map((opt) => (
+                    <Button
+                      key={opt.value}
+                      variant={opt.value === "CANCELLED" ? "ghost" : "primary"}
+                      size="sm"
+                      style={
+                        opt.value === "CANCELLED"
+                          ? { color: "var(--danger)" }
+                          : {}
+                      }
+                      onClick={() => {
+                        setUpdateTarget(delivery);
+                        setUpdateStatus(opt.value);
+                        setUpdateNotes("");
                       }}
-                    />
-                  </div>
+                    >
+                      {opt.label}
+                    </Button>
+                  ))}
                 </div>
-              </div>
-              <p
-                style={{
-                  fontSize: "12px",
-                  color: "var(--text-muted)",
-                  fontStyle: "italic",
-                  marginTop: "8px",
-                }}
-              >
-                Chờ cửa hàng xác nhận nhận hàng
-              </p>
+              )}
             </Card>
-          ))}
-          {shippingOrders.length === 0 && (
-            <Card>
-              <p
-                style={{
-                  textAlign: "center",
-                  color: "var(--text-muted)",
-                  padding: "20px",
-                }}
-              >
-                Không có đơn nào đang giao
-              </p>
-            </Card>
-          )}
-        </div>
+          );
+        })}
+        {deliveries.length === 0 && (
+          <Card>
+            <p
+              style={{
+                textAlign: "center",
+                color: "var(--text-muted)",
+                padding: "20px",
+              }}
+            >
+              Không có lịch giao hàng nào
+            </p>
+          </Card>
+        )}
       </div>
+
+      {totalPages > 1 && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "8px",
+            marginTop: "16px",
+          }}
+        >
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={page === 0}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            ← Trước
+          </Button>
+          <span
+            style={{
+              lineHeight: "32px",
+              fontSize: "13px",
+              color: "var(--text-secondary)",
+            }}
+          >
+            Trang {page + 1} / {totalPages}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={page >= totalPages - 1}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Sau →
+          </Button>
+        </div>
+      )}
+
+      {/* Create delivery modal */}
+      <Modal
+        isOpen={showCreate}
+        onClose={() => setShowCreate(false)}
+        title="Tạo lịch giao hàng"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowCreate(false)}>
+              Hủy
+            </Button>
+            <Button onClick={handleCreate}>Tạo</Button>
+          </>
+        }
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <Input
+            label="Mã đơn hàng"
+            required
+            value={createForm.orderId}
+            onChange={(e) =>
+              setCreateForm((f) => ({ ...f, orderId: e.target.value }))
+            }
+            placeholder="VD: ORD0419001"
+          />
+          <Input
+            label="Thời gian bắt đầu (tùy chọn)"
+            type="datetime-local"
+            value={createForm.assignedAt}
+            onChange={(e) =>
+              setCreateForm((f) => ({ ...f, assignedAt: e.target.value }))
+            }
+          />
+          <Textarea
+            label="Ghi chú"
+            value={createForm.notes}
+            onChange={(e) =>
+              setCreateForm((f) => ({ ...f, notes: e.target.value }))
+            }
+            placeholder="VD: Ưu tiên giao trước 12h"
+          />
+        </div>
+      </Modal>
+
+      {/* Update status modal */}
+      <Modal
+        isOpen={!!updateTarget && !!updateStatus}
+        onClose={() => setUpdateTarget(null)}
+        title="Cập nhật trạng thái giao hàng"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setUpdateTarget(null)}>
+              Hủy
+            </Button>
+            <Button
+              variant={updateStatus === "CANCELLED" ? "danger" : "primary"}
+              onClick={handleUpdateStatus}
+            >
+              Xác nhận
+            </Button>
+          </>
+        }
+      >
+        {updateTarget && (
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+          >
+            <p style={{ fontSize: "14px" }}>
+              Cập nhật giao hàng{" "}
+              <strong>{updateTarget.deliveryId || updateTarget.id}</strong> sang{" "}
+              <Badge variant={DELIVERY_STATUS_COLORS[updateStatus]}>
+                {DELIVERY_STATUS_LABELS[updateStatus]}
+              </Badge>
+            </p>
+            <Textarea
+              label="Ghi chú (tùy chọn)"
+              value={updateNotes}
+              onChange={(e) => setUpdateNotes(e.target.value)}
+              placeholder="VD: Đã rời kho lúc 09:00"
+            />
+          </div>
+        )}
+      </Modal>
     </PageWrapper>
   );
 }

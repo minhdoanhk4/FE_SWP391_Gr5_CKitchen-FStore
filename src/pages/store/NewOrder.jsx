@@ -30,8 +30,9 @@ export default function NewOrder() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    storeService.getAvailableProducts({ size: 100 })
-      .then(res => setProducts(res.content || []))
+    storeService
+      .getAvailableProducts({ size: 100 })
+      .then((res) => setProducts(res.content || []))
       .catch(() => toast.error("Không thể lấy danh sách sản phẩm"));
   }, []);
 
@@ -98,13 +99,15 @@ export default function NewOrder() {
       const payload = {
         requestedDate,
         notes,
-        items: cart.map(i => ({
+        items: cart.map((i) => ({
           productId: i.productId,
-          quantity: i.quantity
-        }))
+          quantity: i.quantity,
+        })),
       };
       await storeService.createOrder(payload);
-      toast.success(`Đơn hàng đã được tạo thành công! Tổng: ${formatCurrency(total)}`);
+      toast.success(
+        `Đơn hàng đã được tạo thành công! Tổng: ${formatCurrency(total)}`,
+      );
       navigate("/store/orders");
     } catch (err) {
       toast.error(err.response?.data?.message || "Tạo đơn hàng thất bại");
@@ -195,8 +198,8 @@ export default function NewOrder() {
                   onClick={() => addToCart(product)}
                 >
                   <div className="product-card__img">
-                    {product.image ? (
-                      <img src={product.image} alt={product.name} />
+                    {product.imageUrl?.[0] ? (
+                      <img src={product.imageUrl[0]} alt={product.name} />
                     ) : (
                       <ShoppingCart size={24} />
                     )}
@@ -310,11 +313,30 @@ export default function NewOrder() {
               />
               {requestedDate && (
                 <div style={{ marginTop: "12px" }}>
-                  <p style={{ fontSize: "var(--text-sm)", fontWeight: "var(--font-medium)", color: "var(--text-primary)", marginBottom: "6px" }}>
+                  <p
+                    style={{
+                      fontSize: "var(--text-sm)",
+                      fontWeight: "var(--font-medium)",
+                      color: "var(--text-primary)",
+                      marginBottom: "6px",
+                    }}
+                  >
                     Mức độ ưu tiên (tự động)
                   </p>
-                  <Badge variant={priority === "high" ? "danger" : priority === "low" ? "neutral" : "info"}>
-                    {priority === "high" ? "Gấp" : priority === "low" ? "Thấp" : "Bình thường"}
+                  <Badge
+                    variant={
+                      priority === "high"
+                        ? "danger"
+                        : priority === "low"
+                          ? "neutral"
+                          : "info"
+                    }
+                  >
+                    {priority === "high"
+                      ? "Gấp"
+                      : priority === "low"
+                        ? "Thấp"
+                        : "Bình thường"}
                   </Badge>
                 </div>
               )}
@@ -354,8 +376,8 @@ export default function NewOrder() {
                   {formatCurrency(total)}
                 </span>
               </div>
-              <Button 
-                variant="primary" 
+              <Button
+                variant="primary"
                 onClick={handleSubmit}
                 disabled={isSubmitting || cart.length === 0}
                 style={{ width: "100%" }}

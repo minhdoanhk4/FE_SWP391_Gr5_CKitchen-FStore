@@ -1,38 +1,44 @@
 import { useState, useEffect } from "react";
 import {
   DollarSign,
-  ShoppingCart,
-  Store,
-  Percent,
+  Package,
+  BookOpen,
+  FlaskConical,
+  ClipboardList,
+  Layers,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
-  Legend,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  Radar,
 } from "recharts";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { StatCard, Badge } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
-import { useData } from "../../contexts/DataContext";
 import managerService from "../../services/managerService";
 import "../Dashboard.css";
 
+function formatCurrency(v) {
+  if (v == null) return "—";
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+  }).format(v);
+}
+
 export default function ManagerDashboard() {
   const { user } = useAuth();
-  const { revenueData, categoryDistribution, formatCurrency, ordersByStore } =
-    useData();
 
   const [overview, setOverview] = useState(null);
   const [kitchenLowStock, setKitchenLowStock] = useState([]);
@@ -54,16 +60,44 @@ export default function ManagerDashboard() {
         );
         setStoreLowStock(Array.isArray(store) ? store : (store?.content ?? []));
       })
-      .catch(() => { if (mounted) toast.error("Không thể tải dữ liệu tổng quan"); })
-      .finally(() => { if (mounted) setLoading(false); });
-    return () => { mounted = false; };
+      .catch(() => {
+        if (mounted) toast.error("Không thể tải dữ liệu tổng quan");
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const totalRevenue = overview?.totalRevenue ?? 0;
-  const totalOrders = overview?.totalOrders ?? 0;
-  const activeStores = overview?.activeStores ?? 0;
-  const wastageRate = overview?.wastageRate ?? 0;
-  const avgFulfillment = overview?.avgFulfillment ?? 0;
+  const totalProducts = overview?.totalProducts ?? 0;
+  const totalIngredients = overview?.totalIngredients ?? 0;
+  const totalRecipes = overview?.totalRecipes ?? 0;
+  const activeProductionPlans = overview?.activeProductionPlans ?? 0;
+  const inProgressBatches = overview?.inProgressBatches ?? 0;
+  const pendingOrders = overview?.pendingOrders ?? 0;
+  const lowStockKitchenItems = overview?.lowStockKitchenItems ?? 0;
+  const lowStockStoreItems = overview?.lowStockStoreItems ?? 0;
+  const totalDisposedQuantity = overview?.totalDisposedQuantity ?? 0;
+
+  const productionChartData = [
+    { name: "Sản phẩm", value: totalProducts },
+    { name: "Nguyên liệu", value: totalIngredients },
+    { name: "Công thức", value: totalRecipes },
+    { name: "KH sản xuất", value: activeProductionPlans },
+    { name: "Lô đang SX", value: inProgressBatches },
+    { name: "Đơn chờ", value: pendingOrders },
+  ];
+
+  const inventoryRadarData = [
+    { subject: "Hàng tồn bếp", value: lowStockKitchenItems, max: Math.max(lowStockKitchenItems, 20) },
+    { subject: "Hàng tồn CH", value: lowStockStoreItems, max: Math.max(lowStockStoreItems, 20) },
+    { subject: "Lô đang SX", value: inProgressBatches, max: Math.max(inProgressBatches, 10) },
+    { subject: "KH hoạt động", value: activeProductionPlans, max: Math.max(activeProductionPlans, 10) },
+    { subject: "Đơn chờ", value: pendingOrders, max: Math.max(pendingOrders, 10) },
+  ];
 
   return (
     <PageWrapper>
@@ -72,45 +106,134 @@ export default function ManagerDashboard() {
         style={{ background: "linear-gradient(135deg, #1D3557, #457B9D)" }}
       >
         <p className="welcome-banner__greeting">Báo cáo tổng quan,</p>
-        <h2 className="welcome-banner__name">{user?.name} 📊</h2>
+        <h2 className="welcome-banner__name">{user?.name}</h2>
         <p className="welcome-banner__summary">
           {loading
             ? "Đang tải dữ liệu..."
-            : `Doanh thu tháng này đạt ${formatCurrency(totalRevenue)} với ${totalOrders} đơn hàng. Tỷ lệ hoàn thành ${avgFulfillment}%.`}
+            : `Tổng doanh thu: ${formatCurrency(totalRevenue)} · ${pendingOrders} đơn đang chờ · ${inProgressBatches} lô đang sản xuất`}
         </p>
       </div>
 
+      {/* Row 1 stats */}
       <div className="dashboard-stats">
         <StatCard
           label="Tổng doanh thu"
           value={loading ? "..." : formatCurrency(totalRevenue)}
           icon={DollarSign}
           color="primary"
-          trend="up"
-          trendValue="+15% so với tháng trước"
         />
         <StatCard
-          label="Tổng đơn hàng"
-          value={loading ? "..." : totalOrders}
-          icon={ShoppingCart}
+          label="Đơn hàng chờ xử lý"
+          value={loading ? "..." : pendingOrders}
+          icon={ClipboardList}
+          color="warning"
+        />
+        <StatCard
+          label="Lô đang sản xuất"
+          value={loading ? "..." : inProgressBatches}
+          icon={Layers}
           color="info"
-          trend="up"
-          trendValue="+12%"
         />
         <StatCard
-          label="Cửa hàng hoạt động"
-          value={loading ? "..." : activeStores}
-          icon={Store}
+          label="KH sản xuất đang chạy"
+          value={loading ? "..." : activeProductionPlans}
+          icon={FlaskConical}
           color="accent"
         />
+      </div>
+
+      {/* Row 2 stats */}
+      <div className="dashboard-stats" style={{ marginTop: "var(--space-3)" }}>
         <StatCard
-          label="Tỷ lệ hao hụt"
-          value={loading ? "..." : `${wastageRate}%`}
-          icon={Percent}
-          color="warning"
-          trend="down"
-          trendValue="-0.5%"
+          label="Tổng sản phẩm"
+          value={loading ? "..." : totalProducts}
+          icon={Package}
+          color="primary"
         />
+        <StatCard
+          label="Công thức nấu ăn"
+          value={loading ? "..." : totalRecipes}
+          icon={BookOpen}
+          color="info"
+        />
+        <StatCard
+          label="Hàng sắp hết (bếp + CH)"
+          value={loading ? "..." : lowStockKitchenItems + lowStockStoreItems}
+          icon={AlertTriangle}
+          color="warning"
+        />
+        <StatCard
+          label="Tổng số thanh lý"
+          value={loading ? "..." : totalDisposedQuantity}
+          icon={Trash2}
+          color="danger"
+        />
+      </div>
+
+      {/* Charts row */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "2fr 1fr",
+          gap: "var(--space-5)",
+          marginTop: "var(--space-5)",
+          marginBottom: "var(--space-5)",
+        }}
+      >
+        {/* Bar chart: production overview */}
+        <div className="dashboard-section">
+          <div className="dashboard-section__header">
+            <h3 className="dashboard-section__title">Tổng quan sản xuất & đơn hàng</h3>
+          </div>
+          <div className="dashboard-section__body">
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={productionChartData} barSize={36}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" />
+                <XAxis dataKey="name" fontSize={12} tick={{ fill: "var(--text-secondary)" }} />
+                <YAxis fontSize={12} tick={{ fill: "var(--text-secondary)" }} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--surface-card)",
+                    border: "1px solid var(--surface-border)",
+                    borderRadius: "10px",
+                    fontSize: "13px",
+                  }}
+                />
+                <Bar dataKey="value" name="Số lượng" fill="var(--primary)" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Radar chart: operational health */}
+        <div className="dashboard-section">
+          <div className="dashboard-section__header">
+            <h3 className="dashboard-section__title">Sức khỏe vận hành</h3>
+          </div>
+          <div className="dashboard-section__body">
+            <ResponsiveContainer width="100%" height={260}>
+              <RadarChart data={inventoryRadarData}>
+                <PolarGrid stroke="var(--surface-border)" />
+                <PolarAngleAxis dataKey="subject" fontSize={11} tick={{ fill: "var(--text-secondary)" }} />
+                <Radar
+                  name="Số lượng"
+                  dataKey="value"
+                  stroke="var(--primary)"
+                  fill="var(--primary)"
+                  fillOpacity={0.25}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--surface-card)",
+                    border: "1px solid var(--surface-border)",
+                    borderRadius: "10px",
+                    fontSize: "13px",
+                  }}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
 
       {/* Low stock alerts */}
@@ -120,7 +243,6 @@ export default function ManagerDashboard() {
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
             gap: "var(--space-5)",
-            marginBottom: "var(--space-5)",
           }}
         >
           {kitchenLowStock.length > 0 && (
@@ -135,7 +257,7 @@ export default function ManagerDashboard() {
                 </h3>
               </div>
               <div className="dashboard-section__body">
-                {kitchenLowStock.slice(0, 5).map((item, i) => (
+                {kitchenLowStock.slice(0, 8).map((item, i) => (
                   <div
                     key={i}
                     style={{
@@ -147,9 +269,9 @@ export default function ManagerDashboard() {
                       fontSize: 13,
                     }}
                   >
-                    <span>{item.name || item.ingredientName}</span>
+                    <span>{item.ingredientName || item.name}</span>
                     <Badge variant="warning">
-                      {item.quantity ?? item.currentStock} {item.unit}
+                      {item.quantity ?? item.currentStock} / {item.minStock} {item.unit}
                     </Badge>
                   </div>
                 ))}
@@ -169,7 +291,7 @@ export default function ManagerDashboard() {
                 </h3>
               </div>
               <div className="dashboard-section__body">
-                {storeLowStock.slice(0, 5).map((item, i) => (
+                {storeLowStock.slice(0, 8).map((item, i) => (
                   <div
                     key={i}
                     style={{
@@ -181,9 +303,16 @@ export default function ManagerDashboard() {
                       fontSize: 13,
                     }}
                   >
-                    <span>{item.name || item.productName}</span>
+                    <div>
+                      <span style={{ fontWeight: 500 }}>{item.productName || item.name}</span>
+                      {item.storeName && (
+                        <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 6 }}>
+                          {item.storeName}
+                        </span>
+                      )}
+                    </div>
                     <Badge variant="danger">
-                      {item.quantity ?? item.currentStock} {item.unit}
+                      {item.quantity ?? item.currentStock} / {item.minStock} {item.unit}
                     </Badge>
                   </div>
                 ))}
@@ -192,150 +321,6 @@ export default function ManagerDashboard() {
           )}
         </div>
       )}
-
-      <div
-        className="dashboard-grid--equal"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "var(--space-5)",
-          marginBottom: "var(--space-6)",
-        }}
-      >
-        <div className="dashboard-section">
-          <div className="dashboard-section__header">
-            <h3 className="dashboard-section__title">Doanh thu theo tháng</h3>
-          </div>
-          <div className="dashboard-section__body">
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={revenueData}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="var(--surface-border)"
-                />
-                <XAxis
-                  dataKey="month"
-                  fontSize={12}
-                  tick={{ fill: "var(--text-secondary)" }}
-                />
-                <YAxis
-                  fontSize={12}
-                  tick={{ fill: "var(--text-secondary)" }}
-                  tickFormatter={(v) => `${(v / 1000000).toFixed(0)}M`}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--surface-card)",
-                    border: "1px solid var(--surface-border)",
-                    borderRadius: "10px",
-                    fontSize: "13px",
-                  }}
-                  formatter={(v) => formatCurrency(v)}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  name="Doanh thu"
-                  stroke="var(--primary)"
-                  strokeWidth={3}
-                  dot={{ r: 5, fill: "var(--primary)" }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="dashboard-section">
-          <div className="dashboard-section__header">
-            <h3 className="dashboard-section__title">Phân bổ theo danh mục</h3>
-          </div>
-          <div className="dashboard-section__body">
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={categoryDistribution}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={4}
-                  dataKey="value"
-                  label={({ name, value }) => `${name} ${value}%`}
-                  labelLine={false}
-                >
-                  {categoryDistribution.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--surface-card)",
-                    border: "1px solid var(--surface-border)",
-                    borderRadius: "10px",
-                    fontSize: "13px",
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      <div className="dashboard-section">
-        <div className="dashboard-section__header">
-          <h3 className="dashboard-section__title">Hiệu suất theo cửa hàng</h3>
-        </div>
-        <div className="dashboard-section__body">
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={ordersByStore}>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="var(--surface-border)"
-              />
-              <XAxis
-                dataKey="name"
-                fontSize={12}
-                tick={{ fill: "var(--text-secondary)" }}
-              />
-              <YAxis
-                yAxisId="left"
-                fontSize={12}
-                tick={{ fill: "var(--text-secondary)" }}
-              />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                fontSize={12}
-                tick={{ fill: "var(--text-secondary)" }}
-                tickFormatter={(v) => `${(v / 1000000).toFixed(0)}M`}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "var(--surface-card)",
-                  border: "1px solid var(--surface-border)",
-                  borderRadius: "10px",
-                  fontSize: "13px",
-                }}
-              />
-              <Legend />
-              <Bar
-                yAxisId="left"
-                dataKey="orders"
-                name="Số đơn"
-                fill="var(--primary)"
-                radius={[6, 6, 0, 0]}
-              />
-              <Bar
-                yAxisId="right"
-                dataKey="revenue"
-                name="Doanh thu"
-                fill="var(--accent-light)"
-                radius={[6, 6, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
     </PageWrapper>
   );
 }

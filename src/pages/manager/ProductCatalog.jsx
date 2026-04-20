@@ -1,11 +1,19 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Plus, Edit, Trash2, Eye, Upload } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, Upload, CheckSquare, Square } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { DataTable, Badge, Button, Modal } from "../../components/ui";
 import { Input, Select } from "../../components/ui";
-import { useData } from "../../contexts/DataContext";
 import managerService from "../../services/managerService";
+import { useData } from "../../contexts/DataContext";
+
+function formatCurrency(v) {
+  if (v == null) return "—";
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+  }).format(v);
+}
 
 const UNIT_OPTIONS = [
   { value: "phần", label: "Phần" },
@@ -23,12 +31,14 @@ const EMPTY_FORM = {
 };
 
 export default function ProductCatalog() {
-  const { formatCurrency } = useData();
+  const { addAuditLog } = useData();
 
   const [products, setProducts] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [isBulkDelete, setIsBulkDelete] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
@@ -46,7 +56,10 @@ export default function ProductCatalog() {
 
   const setImages = (files) => {
     if (!files || files.length === 0) {
-      setImagePreviews((prev) => { prev.forEach(URL.revokeObjectURL); return []; });
+      setImagePreviews((prev) => {
+        prev.forEach(URL.revokeObjectURL);
+        return [];
+      });
       setImageFiles(null);
       return;
     }
@@ -80,9 +93,15 @@ export default function ProductCatalog() {
             : [],
         );
       })
-      .catch(() => { if (mounted) toast.error("Không thể tải dữ liệu sản phẩm"); })
-      .finally(() => { if (mounted) setLoading(false); });
-    return () => { mounted = false; };
+      .catch(() => {
+        if (mounted) toast.error("Không thể tải dữ liệu sản phẩm");
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const categoryOptions = categories.length
@@ -104,7 +123,9 @@ export default function ProductCatalog() {
       if (r.ingredientId && !seen.has(r.ingredientId)) {
         seen.set(r.ingredientId, {
           value: r.ingredientId,
-          label: r.ingredientName ? `${r.ingredientName} (${r.unit ?? ""})` : r.ingredientId,
+          label: r.ingredientName
+            ? `${r.ingredientName} (${r.unit ?? ""})`
+            : r.ingredientId,
         });
       }
     });
@@ -160,6 +181,7 @@ export default function ProductCatalog() {
           editProduct.id,
           fields,
         );
+        addAuditLog("product_updated", null, `Cập nhật sản phẩm ${fields.name}`, "products");
         setProducts((prev) =>
           prev.map((p) =>
             p.id === editProduct.id ? (updated ?? { ...p, ...fields }) : p,
@@ -168,6 +190,7 @@ export default function ProductCatalog() {
         toast.success(`Đã cập nhật sản phẩm ${form.name}`);
       } else {
         const created = await managerService.products.create(fields);
+        addAuditLog("product_created", null, `Tạo sản phẩm mới ${fields.name}`, "products");
         setProducts((prev) => [...prev, created]);
         toast.success(`Đã tạo sản phẩm ${form.name}`);
       }
@@ -180,23 +203,47 @@ export default function ProductCatalog() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!confirmDelete) return;
     setSaving(true);
     try {
-      await managerService.products.delete(confirmDelete.id);
-      setProducts((prev) => prev.filter((p) => p.id !== confirmDelete.id));
-      toast.success(`Đã xóa sản phẩm ${confirmDelete.name}`);
+      if (isBulkDelete) {
+        await Promise.all(selectedIds.map(id => managerService.products.delete(id)));
+        addAuditLog("product_deleted", null, `Đã xóa hàng loạt ${selectedIds.length} sản phẩm`, "products");
+        setProducts(prev => prev.filter(p => !selectedIds.includes(p.id)));
+        toast.success(`Đã xóa ${selectedIds.length} sản phẩm`);
+        setSelectedIds([]);
+      } else {
+        await managerService.products.delete(confirmDelete.id);
+        addAuditLog("product_deleted", null, `Đã xóa sản phẩm ${confirmDelete.name}`, "products");
+        setProducts((prev) => prev.filter((p) => p.id !== confirmDelete.id));
+        toast.success(`Đã xóa sản phẩm ${confirmDelete.name}`);
+      }
       setConfirmDelete(null);
+      setIsBulkDelete(false);
     } catch {
-      toast.error("Xóa sản phẩm thất bại");
+      toast.error("Xóa thất bại");
     } finally {
       setSaving(false);
     }
   };
 
+  const handleSelectAll = () => {
+    if (selectedIds.length === products.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(products.map(p => p.id));
+    }
+  };
+
+  const handleSelectOne = (id) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
   const handleOpenRecipe = (product) => {
     const productRecipes = recipes.filter(
-      (r) => r.productId === product.id || r.productId === product.id?.toString(),
+      (r) =>
+        r.productId === product.id || r.productId === product.id?.toString(),
     );
     setRecipeItems(
       productRecipes.length > 0
@@ -284,6 +331,19 @@ export default function ProductCatalog() {
 
   const columns = [
     {
+      header: (
+        <div onClick={(e) => { e.stopPropagation(); handleSelectAll(); }} style={{ cursor: "pointer" }}>
+          {selectedIds.length === products.length && products.length > 0 ? <CheckSquare size={18} /> : <Square size={18} />}
+        </div>
+      ),
+      width: "40px",
+      render: (r) => (
+        <div onClick={(e) => { e.stopPropagation(); handleSelectOne(r.id); }} style={{ cursor: "pointer" }}>
+          {selectedIds.includes(r.id) ? <CheckSquare size={18} color="var(--primary)" /> : <Square size={18} />}
+        </div>
+      )
+    },
+    {
       header: "",
       width: "48px",
       render: (r) =>
@@ -291,15 +351,29 @@ export default function ProductCatalog() {
           <img
             src={r.imageUrl[0]}
             alt={r.name}
-            style={{ width: 36, height: 36, objectFit: "cover", borderRadius: "var(--radius-sm)" }}
+            style={{
+              width: 36,
+              height: 36,
+              objectFit: "cover",
+              borderRadius: "var(--radius-sm)",
+            }}
           />
         ) : (
-          <div style={{
-            width: 36, height: 36, borderRadius: "var(--radius-sm)",
-            background: "var(--surface-hover)", display: "flex",
-            alignItems: "center", justifyContent: "center",
-            fontSize: "16px", color: "var(--text-muted)",
-          }}>🍽</div>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: "var(--radius-sm)",
+              background: "var(--surface-hover)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "16px",
+              color: "var(--text-muted)",
+            }}
+          >
+            🍽
+          </div>
         ),
     },
     {
@@ -414,9 +488,23 @@ export default function ProductCatalog() {
       title="Danh mục sản phẩm"
       subtitle="Quản lý sản phẩm, công thức và định mức nguyên liệu"
       actions={
-        <Button icon={Plus} onClick={handleOpenNew}>
-          Thêm sản phẩm
-        </Button>
+        <div style={{ display: "flex", gap: "10px" }}>
+          {selectedIds.length > 0 && (
+            <Button
+              variant="danger"
+              icon={Trash2}
+              onClick={() => {
+                setIsBulkDelete(true);
+                setConfirmDelete({ name: `${selectedIds.length} sản phẩm đã chọn` });
+              }}
+            >
+              Xóa {selectedIds.length} mục
+            </Button>
+          )}
+          <Button icon={Plus} onClick={handleOpenNew}>
+            Thêm sản phẩm
+          </Button>
+        </div>
       }
     >
       <DataTable
@@ -544,22 +632,47 @@ export default function ProductCatalog() {
             {/* Existing server images (edit mode) */}
             {editProduct?.imageUrl?.length > 0 && (
               <div style={{ marginBottom: "8px" }}>
-                <p style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>Ảnh hiện tại:</p>
+                <p
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--text-muted)",
+                    marginBottom: "6px",
+                  }}
+                >
+                  Ảnh hiện tại:
+                </p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                   {editProduct.imageUrl.map((url, i) => (
-                    <img key={i} src={url} alt={`existing-${i}`} style={{
-                      width: 80, height: 80, objectFit: "cover",
-                      borderRadius: "var(--radius-sm)",
-                      border: "1px solid var(--surface-border)",
-                    }} />
+                    <img
+                      key={i}
+                      src={url}
+                      alt={`existing-${i}`}
+                      style={{
+                        width: 80,
+                        height: 80,
+                        objectFit: "cover",
+                        borderRadius: "var(--radius-sm)",
+                        border: "1px solid var(--surface-border)",
+                      }}
+                    />
                   ))}
                 </div>
               </div>
             )}
             {imagePreviews.length > 0 ? (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "8px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "8px",
+                  marginBottom: "8px",
+                }}
+              >
                 {imagePreviews.map((src, i) => (
-                  <div key={i} style={{ position: "relative", width: 80, height: 80 }}>
+                  <div
+                    key={i}
+                    style={{ position: "relative", width: 80, height: 80 }}
+                  >
                     <img
                       src={src}
                       alt={`preview-${i}`}
@@ -575,9 +688,13 @@ export default function ProductCatalog() {
                       type="button"
                       onClick={() => {
                         URL.revokeObjectURL(src);
-                        const newPreviews = imagePreviews.filter((_, idx) => idx !== i);
+                        const newPreviews = imagePreviews.filter(
+                          (_, idx) => idx !== i,
+                        );
                         const dt = new DataTransfer();
-                        Array.from(imageFiles).filter((_, idx) => idx !== i).forEach((f) => dt.items.add(f));
+                        Array.from(imageFiles)
+                          .filter((_, idx) => idx !== i)
+                          .forEach((f) => dt.items.add(f));
                         setImagePreviews(newPreviews);
                         setImageFiles(dt.files.length > 0 ? dt.files : null);
                       }}
@@ -614,9 +731,21 @@ export default function ProductCatalog() {
               }}
               onClick={() => fileInputRef.current?.click()}
             >
-              <Upload size={18} color="var(--text-muted)" style={{ marginBottom: 2 }} />
-              <p style={{ fontSize: "13px", color: "var(--text-muted)", margin: 0 }}>
-                {imagePreviews.length > 0 ? "Thêm ảnh khác" : "Nhấp để chọn ảnh"}
+              <Upload
+                size={18}
+                color="var(--text-muted)"
+                style={{ marginBottom: 2 }}
+              />
+              <p
+                style={{
+                  fontSize: "13px",
+                  color: "var(--text-muted)",
+                  margin: 0,
+                }}
+              >
+                {imagePreviews.length > 0
+                  ? "Thêm ảnh khác"
+                  : "Nhấp để chọn ảnh"}
               </p>
             </div>
             <input

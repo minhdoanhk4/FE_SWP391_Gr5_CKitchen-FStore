@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   MapPin,
   Calendar,
@@ -9,6 +9,7 @@ import {
   Eye,
   ArrowRight,
   UserPlus,
+  Flag,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
@@ -26,7 +27,7 @@ import "./Orders.css";
 // ── Backend enum statuses ───────────────────────────────────────────────────
 const STATUS_LABELS = {
   PENDING: "Chờ tiếp nhận",
-  ASSIGNED: "Đã gán",
+  ASSIGNED: "Đã tiếp nhận",
   IN_PROGRESS: "Đang sản xuất",
   PACKED_WAITING_SHIPPER: "Chờ shipper",
   SHIPPING: "Đang giao",
@@ -57,7 +58,7 @@ const STATUS_FLOW = [
   "DELIVERED",
 ];
 
-// Fallback next statuses — overridden by dynamic fetch from BE
+// Fallback transition map — used when BE /order-statuses is unavailable
 const DEFAULT_NEXT_STATUSES = {
   PENDING: ["IN_PROGRESS", "CANCELLED"],
   ASSIGNED: ["IN_PROGRESS", "CANCELLED"],
@@ -66,10 +67,27 @@ const DEFAULT_NEXT_STATUSES = {
   SHIPPING: ["DELIVERED"],
 };
 
+// Build a transition map from the flat list returned by GET /order-statuses.
+// The BE returns statuses valid for the /status update endpoint (no PENDING/ASSIGNED).
+// We preserve the ordering by filtering DEFAULT_NEXT_STATUSES against the allowed set.
+function buildNextStatusMap(allowedStatuses) {
+  if (!allowedStatuses?.length) return DEFAULT_NEXT_STATUSES;
+  const allowed = new Set(allowedStatuses);
+  const result = {};
+  Object.entries(DEFAULT_NEXT_STATUSES).forEach(([from, targets]) => {
+    const filtered = targets.filter((t) => allowed.has(t) || t === "CANCELLED");
+    if (filtered.length) result[from] = filtered;
+  });
+  return result;
+}
+
+const PRIORITY_LABELS = { HIGH: "Cao", NORMAL: "Thường", LOW: "Thấp" };
+const PRIORITY_COLORS = { HIGH: "danger", NORMAL: "info", LOW: "neutral" };
+
 const statusTabs = [
   { value: "", label: "Tất cả" },
   { value: "PENDING", label: "Chờ tiếp nhận" },
-  { value: "ASSIGNED", label: "Đã gán" },
+  { value: "ASSIGNED", label: "Đã tiếp nhận" },
   { value: "IN_PROGRESS", label: "Đang sản xuất" },
   { value: "PACKED_WAITING_SHIPPER", label: "Chờ shipper" },
   { value: "SHIPPING", label: "Đang giao" },
@@ -85,7 +103,10 @@ function formatDateTime(d) {
 }
 function formatCurrency(v) {
   if (v == null) return "—";
-  return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(v);
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+  }).format(v);
 }
 
 // ── Order Detail Drawer ─────────────────────────────────────────────────────
@@ -94,7 +115,11 @@ function OrderDetailDrawer({ order, isOpen, onClose }) {
   const currentIndex = STATUS_FLOW.indexOf(order.status);
 
   return (
-    <Drawer isOpen={isOpen} onClose={onClose} title={`Chi tiết đơn hàng ${order.id}`}>
+    <Drawer
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Chi tiết đơn hàng ${order.id}`}
+    >
       <div className="order-drawer">
         <div className="order-drawer__status">
           <Badge variant={STATUS_COLORS[order.status]} dot>
@@ -110,9 +135,13 @@ function OrderDetailDrawer({ order, isOpen, onClose }) {
               className={`order-drawer__step ${i <= currentIndex ? "order-drawer__step--done" : ""} ${i === currentIndex ? "order-drawer__step--current" : ""}`}
             >
               <div className="order-drawer__step-dot" />
-              <span className="order-drawer__step-label">{STATUS_LABELS[s]}</span>
+              <span className="order-drawer__step-label">
+                {STATUS_LABELS[s]}
+              </span>
               {i < STATUS_FLOW.length - 1 && (
-                <div className={`order-drawer__step-line ${i < currentIndex ? "order-drawer__step-line--filled" : ""}`} />
+                <div
+                  className={`order-drawer__step-line ${i < currentIndex ? "order-drawer__step-line--filled" : ""}`}
+                />
               )}
             </div>
           ))}
@@ -126,28 +155,38 @@ function OrderDetailDrawer({ order, isOpen, onClose }) {
               <FileText size={14} />
               <div>
                 <span className="order-drawer__info-label">Mã đơn</span>
-                <span className="order-drawer__info-value font-mono">{order.id}</span>
+                <span className="order-drawer__info-value font-mono">
+                  {order.id}
+                </span>
               </div>
             </div>
             <div className="order-drawer__info-item">
               <MapPin size={14} />
               <div>
                 <span className="order-drawer__info-label">Cửa hàng</span>
-                <span className="order-drawer__info-value">{order.storeName}</span>
+                <span className="order-drawer__info-value">
+                  {order.storeName}
+                </span>
               </div>
             </div>
             <div className="order-drawer__info-item">
               <Calendar size={14} />
               <div>
-                <span className="order-drawer__info-label">Ngày yêu cầu giao</span>
-                <span className="order-drawer__info-value">{formatDate(order.requestedDate)}</span>
+                <span className="order-drawer__info-label">
+                  Ngày yêu cầu giao
+                </span>
+                <span className="order-drawer__info-value">
+                  {formatDate(order.requestedDate)}
+                </span>
               </div>
             </div>
             <div className="order-drawer__info-item">
               <User size={14} />
               <div>
                 <span className="order-drawer__info-label">Người tạo</span>
-                <span className="order-drawer__info-value">{order.createdBy}</span>
+                <span className="order-drawer__info-value">
+                  {order.createdBy}
+                </span>
               </div>
             </div>
           </div>
@@ -161,13 +200,17 @@ function OrderDetailDrawer({ order, isOpen, onClose }) {
               {order.items.map((item, i) => (
                 <div key={i} className="order-drawer__item-row">
                   <span>{item.productName}</span>
-                  <span className="font-mono">{item.quantity} {item.unit}</span>
+                  <span className="font-mono">
+                    {item.quantity} {item.unit}
+                  </span>
                 </div>
               ))}
               {order.total != null && (
                 <div className="order-drawer__item-total">
                   <span>Tổng cộng</span>
-                  <span className="font-mono">{formatCurrency(order.total)}</span>
+                  <span className="font-mono">
+                    {formatCurrency(order.total)}
+                  </span>
                 </div>
               )}
             </div>
@@ -177,7 +220,15 @@ function OrderDetailDrawer({ order, isOpen, onClose }) {
         {order.notes && (
           <div className="order-drawer__section">
             <h4 className="order-drawer__section-title">Ghi chú</h4>
-            <pre className="order-drawer__notes" style={{ whiteSpace: "pre-wrap", fontFamily: "var(--font-body)", fontSize: "13px", color: "var(--text-secondary)" }}>
+            <pre
+              className="order-drawer__notes"
+              style={{
+                whiteSpace: "pre-wrap",
+                fontFamily: "var(--font-body)",
+                fontSize: "13px",
+                color: "var(--text-secondary)",
+              }}
+            >
               {order.notes}
             </pre>
           </div>
@@ -185,7 +236,9 @@ function OrderDetailDrawer({ order, isOpen, onClose }) {
 
         <div className="order-drawer__meta">
           {order.createdAt && <>Tạo lúc {formatDateTime(order.createdAt)}</>}
-          {order.assignedAt && <> · Gán lúc {formatDateTime(order.assignedAt)}</>}
+          {order.assignedAt && (
+            <> · Gán lúc {formatDateTime(order.assignedAt)}</>
+          )}
         </div>
       </div>
     </Drawer>
@@ -209,10 +262,17 @@ export default function KitchenOrders({
 
   // ── Fetch valid order statuses from BE ────────────────────────────────
   useEffect(() => {
-    kitchenService.getOrderStatuses()
+    kitchenService
+      .getOrderStatuses()
       .then((statuses) => setValidStatuses(statuses || []))
       .catch(() => {}); // fallback to DEFAULT_NEXT_STATUSES
   }, []);
+
+  // Build transition map — dynamic when BE responds, static fallback otherwise
+  const nextStatusMap = useMemo(
+    () => buildNextStatusMap(validStatuses),
+    [validStatuses],
+  );
 
   // ── Fetch orders ──────────────────────────────────────────────────────────
   const fetchOrders = useCallback(async () => {
@@ -227,13 +287,17 @@ export default function KitchenOrders({
       setTotalPages(data.totalPages || 0);
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.message || "Không thể tải danh sách đơn hàng");
+      toast.error(
+        err.response?.data?.message || "Không thể tải danh sách đơn hàng",
+      );
     } finally {
       setLoading(false);
     }
   }, [statusFilter, page]);
 
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   // ── Assign order ──────────────────────────────────────────────────────────
   const handleAssign = async (e, order) => {
@@ -243,7 +307,9 @@ export default function KitchenOrders({
       toast.success(`Đã tiếp nhận đơn ${order.id}`);
       fetchOrders();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Không thể tiếp nhận đơn hàng");
+      toast.error(
+        err.response?.data?.message || "Không thể tiếp nhận đơn hàng",
+      );
     }
   };
 
@@ -273,7 +339,9 @@ export default function KitchenOrders({
       setPendingChange(null);
       fetchOrders();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Không thể cập nhật trạng thái");
+      toast.error(
+        err.response?.data?.message || "Không thể cập nhật trạng thái",
+      );
     }
   };
 
@@ -295,7 +363,10 @@ export default function KitchenOrders({
       sortable: true,
       width: "120px",
       render: (row) => (
-        <span className="font-mono" style={{ fontWeight: 600, color: "var(--primary)" }}>
+        <span
+          className="font-mono"
+          style={{ fontWeight: 600, color: "var(--primary)" }}
+        >
           {row.id}
         </span>
       ),
@@ -306,9 +377,20 @@ export default function KitchenOrders({
       accessor: "items",
       render: (row) => {
         if (!row.items?.length) return "—";
-        const display = row.items.map((i) => `${i.productName} x${i.quantity}`).join(", ");
+        const display = row.items
+          .map((i) => `${i.productName} x${i.quantity}`)
+          .join(", ");
         return (
-          <span title={display} style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
+          <span
+            title={display}
+            style={{
+              maxWidth: 200,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              display: "inline-block",
+            }}
+          >
             {display}
           </span>
         );
@@ -318,14 +400,26 @@ export default function KitchenOrders({
       header: "Ngày yêu cầu",
       accessor: "requestedDate",
       sortable: true,
-      width: "130px",
+      width: "120px",
       render: (row) => formatDate(row.requestedDate),
+    },
+    {
+      header: "Ưu tiên",
+      accessor: "priority",
+      width: "90px",
+      render: (row) =>
+        row.priority ? (
+          <Badge variant={PRIORITY_COLORS[row.priority] || "neutral"}>
+            <Flag size={10} style={{ marginRight: 3 }} />
+            {PRIORITY_LABELS[row.priority] || row.priority}
+          </Badge>
+        ) : "—",
     },
     {
       header: "Trạng thái",
       accessor: "status",
       sortable: true,
-      width: "160px",
+      width: "150px",
       render: (row) => (
         <Badge variant={STATUS_COLORS[row.status] || "neutral"} dot>
           {STATUS_LABELS[row.status] || row.status}
@@ -335,33 +429,67 @@ export default function KitchenOrders({
     {
       header: "Thao tác",
       accessor: "actions",
-      width: "220px",
+      width: "200px",
       render: (row) => {
-        const nextStatuses = DEFAULT_NEXT_STATUSES[row.status] || [];
+        const nextStatuses = nextStatusMap[row.status] || [];
+        // PENDING: only show "Tiếp nhận" — kitchen must accept before advancing
         const canAssign = row.status === "PENDING";
-        const primaryNext = nextStatuses.find((s) => s !== "CANCELLED");
+        // For non-PENDING statuses, use the mapped next status
+        const primaryNext = canAssign
+          ? null
+          : nextStatuses.find((s) => s !== "CANCELLED");
+        const canCancel = nextStatuses.includes("CANCELLED");
 
         return (
-          <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-            <Button variant="ghost" size="sm" iconOnly icon={Eye} title="Xem chi tiết"
-              onClick={(e) => { e.stopPropagation(); handleViewDetail(row); }} />
+          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+            {/* View detail */}
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              icon={Eye}
+              title="Xem chi tiết"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewDetail(row);
+              }}
+            />
+
+            {/* Accept (PENDING only) */}
             {canAssign && (
-              <Button variant="accent" size="sm" icon={UserPlus}
-                onClick={(e) => handleAssign(e, row)} title="Tiếp nhận đơn">
+              <Button
+                variant="accent"
+                size="sm"
+                icon={UserPlus}
+                onClick={(e) => handleAssign(e, row)}
+                title="Tiếp nhận đơn"
+              >
                 Tiếp nhận
               </Button>
             )}
+
+            {/* Primary status advance */}
             {primaryNext && (
-              <Button variant="primary" size="sm" icon={ArrowRight}
+              <Button
+                variant="primary"
+                size="sm"
+                icon={ArrowRight}
                 onClick={(e) => openStatusChange(e, row, primaryNext)}
-                title={`Chuyển sang: ${STATUS_LABELS[primaryNext]}`}>
+                title={`Chuyển sang: ${STATUS_LABELS[primaryNext]}`}
+              >
                 {STATUS_LABELS[primaryNext]}
               </Button>
             )}
-            {nextStatuses.includes("CANCELLED") && (
-              <Button variant="ghost" size="sm"
+
+            {/* Cancel — text button matching project convention */}
+            {canCancel && (
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Hủy đơn"
                 onClick={(e) => openStatusChange(e, row, "CANCELLED")}
-                title="Hủy đơn" style={{ color: "var(--danger)" }}>
+                style={{ color: "var(--danger)" }}
+              >
                 Hủy
               </Button>
             )}
@@ -374,18 +502,37 @@ export default function KitchenOrders({
   return (
     <PageWrapper title={title} subtitle={subtitle}>
       {/* Status filter tabs */}
-      <div style={{ display: "flex", gap: "8px", marginBottom: "20px", flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "8px",
+          marginBottom: "20px",
+          flexWrap: "wrap",
+        }}
+      >
         {statusTabs.map((tab) => (
           <button
             key={tab.value}
-            onClick={() => { setStatusFilter(tab.value); setPage(0); }}
+            onClick={() => {
+              setStatusFilter(tab.value);
+              setPage(0);
+            }}
             style={{
               padding: "6px 16px",
               borderRadius: "var(--radius-full)",
               border: "1.5px solid",
-              borderColor: statusFilter === tab.value ? "var(--primary)" : "var(--surface-border)",
-              background: statusFilter === tab.value ? "var(--primary-bg)" : "var(--surface-card)",
-              color: statusFilter === tab.value ? "var(--primary)" : "var(--text-secondary)",
+              borderColor:
+                statusFilter === tab.value
+                  ? "var(--primary)"
+                  : "var(--surface-border)",
+              background:
+                statusFilter === tab.value
+                  ? "var(--primary-bg)"
+                  : "var(--surface-card)",
+              color:
+                statusFilter === tab.value
+                  ? "var(--primary)"
+                  : "var(--text-secondary)",
               fontSize: "13px",
               fontWeight: 500,
               cursor: "pointer",
@@ -409,14 +556,39 @@ export default function KitchenOrders({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div style={{ display: "flex", justifyContent: "center", gap: "8px", marginTop: "16px" }}>
-          <Button variant="ghost" size="sm" disabled={page === 0}
-            onClick={() => setPage((p) => p - 1)}>← Trước</Button>
-          <span style={{ lineHeight: "32px", fontSize: "13px", color: "var(--text-secondary)" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "8px",
+            marginTop: "16px",
+          }}
+        >
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={page === 0}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            ← Trước
+          </Button>
+          <span
+            style={{
+              lineHeight: "32px",
+              fontSize: "13px",
+              color: "var(--text-secondary)",
+            }}
+          >
             Trang {page + 1} / {totalPages}
           </span>
-          <Button variant="ghost" size="sm" disabled={page >= totalPages - 1}
-            onClick={() => setPage((p) => p + 1)}>Sau →</Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={page >= totalPages - 1}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Sau →
+          </Button>
         </div>
       )}
 
@@ -434,10 +606,15 @@ export default function KitchenOrders({
         title="Xác nhận chuyển trạng thái"
         footer={
           <div className="order-confirm__actions">
-            <Button variant="ghost" onClick={() => setPendingChange(null)}>Hủy</Button>
+            <Button variant="ghost" onClick={() => setPendingChange(null)}>
+              Hủy
+            </Button>
             <Button
-              variant={pendingChange?.toStatus === "CANCELLED" ? "danger" : "primary"}
-              onClick={handleConfirmChange}>
+              variant={
+                pendingChange?.toStatus === "CANCELLED" ? "danger" : "primary"
+              }
+              onClick={handleConfirmChange}
+            >
               Xác nhận
             </Button>
           </div>

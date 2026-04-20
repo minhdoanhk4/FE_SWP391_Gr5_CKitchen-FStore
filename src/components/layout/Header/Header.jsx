@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { Bell, Search, ChevronRight, ShoppingCart, ChefHat, AlertTriangle, CheckCircle, Truck, Package, Menu } from 'lucide-react';
+import { Bell, Search, ChevronRight, ShoppingCart, ChefHat, AlertTriangle, CheckCircle, Truck, Package, Menu, Moon, Sun, Users, Box } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
 import { useAuth, ROLE_INFO } from '../../../contexts/AuthContext';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -38,14 +38,17 @@ const ACTIVITY_ICONS = {
   stock_low: AlertTriangle,
   batch_completed: CheckCircle,
   order_delivered: Package,
+  product_created: Box,
+  product_updated: Box,
+  user_login: Users,
 };
 
 const ROLE_NOTIF_FILTER = {
   STORE_STAFF: ['order_confirmed', 'delivery_shipped', 'stock_low', 'order_delivered'],
   KITCHEN_STAFF: ['order_created', 'order_confirmed', 'production_started', 'stock_low', 'batch_completed'],
   SUPPLY_COORDINATOR: ['delivery_shipped', 'issue_reported', 'batch_completed', 'order_delivered'],
-  MANAGER: ['order_created', 'production_started', 'issue_reported', 'stock_low'],
-  ADMIN: ['issue_reported', 'order_created', 'stock_low'], // ADMIN sees important system alerts
+  MANAGER: ['order_created', 'production_started', 'issue_reported', 'stock_low', 'product_created', 'product_updated'],
+  ADMIN: ['issue_reported', 'order_created', 'stock_low', 'user_login', 'product_deleted'],
 };
 
 export default function Header() {
@@ -61,8 +64,8 @@ export default function Header() {
   const searchRef = useRef(null);
 
   const { user } = useAuth();
-  const { toggleSidebar } = useTheme();
-  const { orders, products, users, stores, recentActivity } = useData();
+  const { theme, toggleTheme, toggleSidebar } = useTheme();
+  const { orders, products, users, stores, auditLogs, cart = [], formatDateTime } = useData();
 
   const rolePrefix = user ? (ROLE_INFO[user.role]?.path || '') : '';
 
@@ -73,9 +76,11 @@ export default function Header() {
   }));
 
   const allowedActivityTypes = ROLE_NOTIF_FILTER[user?.role] || [];
-  const notifications = user?.role === 'ADMIN' 
-    ? recentActivity 
-    : recentActivity.filter(act => allowedActivityTypes.includes(act.type));
+  const notifications = useMemo(() => {
+    const list = auditLogs || [];
+    if (user?.role === 'ADMIN') return list;
+    return list.filter(act => allowedActivityTypes.includes(act.action));
+  }, [auditLogs, user?.role, allowedActivityTypes]);
 
   const unreadCount = notifications.filter(act => !readNotifs.includes(act.id)).length;
 
@@ -217,6 +222,11 @@ export default function Header() {
           </Link>
         )}
 
+        {/* Theme Toggle */}
+        <button className="app-header__icon-btn" onClick={toggleTheme} aria-label="Đổi chủ đề">
+          {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+        </button>
+
         {/* Notification Bell */}
         <div className="notif-wrapper" ref={notifRef}>
           <button className="app-header__icon-btn" onClick={() => setNotifOpen(!notifOpen)} aria-label={`Thông báo${unreadCount > 0 ? `, ${unreadCount} chưa đọc` : ''}`}>
@@ -239,20 +249,20 @@ export default function Header() {
                   </div>
                 ) : (
                   notifications.map(act => {
-                  const Icon = ACTIVITY_ICONS[act.type] || Bell;
-                  const isRead = readNotifs.includes(act.id);
+                    const Icon = ACTIVITY_ICONS[act.action] || Bell;
+                    const isRead = readNotifs.includes(act.id);
                   return (
                     <div
                       key={act.id}
                       className={`notif-item ${isRead ? 'notif-item--read' : ''}`}
                       onClick={() => handleMarkRead(act.id)}
                     >
-                      <div className={`notif-item__icon notif-item__icon--${act.type.includes('issue') || act.type.includes('stock') ? 'warning' : act.type.includes('delivery') || act.type.includes('batch') ? 'success' : 'primary'}`}>
+                      <div className={`notif-item__icon notif-item__icon--${act.action.includes('issue') || act.action.includes('stock') ? 'warning' : act.action.includes('delivery') || act.action.includes('batch') ? 'success' : 'primary'}`}>
                         <Icon size={16} />
                       </div>
                       <div className="notif-item__content">
-                        <p className="notif-item__message">{act.message}</p>
-                        <p className="notif-item__time">{act.time}</p>
+                        <p className="notif-item__message">{act.details || act.message}</p>
+                        <p className="notif-item__time">{formatDateTime(act.timestamp)}</p>
                       </div>
                       {!isRead && <span className="notif-item__unread-dot" />}
                     </div>

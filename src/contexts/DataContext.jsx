@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useCallback } from "react";
+import { createContext, useContext, useReducer, useCallback, useEffect } from "react";
 import {
   orders as mockOrders,
   products as mockProducts,
@@ -49,7 +49,7 @@ const initialState = {
   salesRecords: [...mockSalesRecords],
   cart: [],
   systemConfig: {
-    systemName: "Kizuna Restaurant",
+    systemName: "Kizuna Chain",
     email: "support@kizuna.vn",
     timezone: "UTC+7",
     currency: "VND",
@@ -64,6 +64,22 @@ const initialState = {
     maxRetries: "2",
     autoConfirm: "no",
   },
+};
+
+// Initialize audit logs from localStorage if available, otherwise use mock
+const getInitialAuditLogs = () => {
+  try {
+    const saved = localStorage.getItem("ckitchen_audit_logs");
+    if (saved) return JSON.parse(saved);
+  } catch (e) {
+    console.error("Failed to load audit logs from localStorage", e);
+  }
+  return [...mockAuditLogs];
+};
+
+const initialDataState = {
+  ...initialState,
+  auditLogs: getInitialAuditLogs(),
 };
 
 function dataReducer(state, action) {
@@ -293,7 +309,12 @@ function dataReducer(state, action) {
 }
 
 export function DataProvider({ children }) {
-  const [state, dispatch] = useReducer(dataReducer, initialState);
+  const [state, dispatch] = useReducer(dataReducer, initialDataState);
+
+  // Persist audit logs to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem("ckitchen_audit_logs", JSON.stringify(state.auditLogs));
+  }, [state.auditLogs]);
 
   const addAuditLog = useCallback(
     (action, user, details, module) => {

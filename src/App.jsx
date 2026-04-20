@@ -37,6 +37,7 @@ import KitchenInventory from "./pages/kitchen/Inventory";
 import ProductionPlan from "./pages/kitchen/ProductionPlan";
 
 // Supply pages
+import SupplyOrders from "./pages/supply/Orders";
 import DeliverySchedule from "./pages/supply/DeliverySchedule";
 import IssueManagement from "./pages/supply/IssueManagement";
 
@@ -49,7 +50,11 @@ import Reports from "./pages/shared/Reports";
 // Admin pages
 import UserManagement from "./pages/admin/UserManagement";
 import StoreManagement from "./pages/admin/StoreManagement";
+import KitchenManagement from "./pages/admin/KitchenManagement";
+import ProductManagement from "./pages/admin/ProductManagement";
+import NotificationManagement from "./pages/admin/NotificationManagement";
 import SystemConfig from "./pages/admin/SystemConfig";
+import Profile from "./pages/shared/Profile";
 
 // Styles
 import "./styles/global.css";
@@ -105,7 +110,9 @@ function AppRoutes() {
         </Route>
 
         {/* Kitchen Staff */}
-        <Route element={<ProtectedRoute allowedRoles={["CENTRAL_KITCHEN_STAFF"]} />}>
+        <Route
+          element={<ProtectedRoute allowedRoles={["CENTRAL_KITCHEN_STAFF"]} />}
+        >
           <Route path="/kitchen/dashboard" element={<KitchenDashboard />} />
           <Route
             path="/kitchen/orders"
@@ -125,6 +132,7 @@ function AppRoutes() {
           element={<ProtectedRoute allowedRoles={["SUPPLY_COORDINATOR"]} />}
         >
           <Route path="/supply/dashboard" element={<SupplyDashboard />} />
+          <Route path="/supply/orders" element={<SupplyOrders />} />
           <Route path="/supply/delivery" element={<DeliverySchedule />} />
           <Route path="/supply/issues" element={<IssueManagement />} />
         </Route>
@@ -152,6 +160,9 @@ function AppRoutes() {
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/users" element={<UserManagement />} />
           <Route path="/admin/stores" element={<StoreManagement />} />
+          <Route path="/admin/kitchens" element={<KitchenManagement />} />
+          <Route path="/admin/products" element={<ProductManagement />} />
+          <Route path="/admin/notifications" element={<NotificationManagement />} />
           <Route path="/admin/config" element={<SystemConfig />} />
           <Route
             path="/admin/reports"
@@ -163,6 +174,9 @@ function AppRoutes() {
             }
           />
         </Route>
+
+        {/* Global Protected Routes */}
+        <Route path="/profile" element={<Profile />} />
       </Route>
 
       {/* Catch all */}
