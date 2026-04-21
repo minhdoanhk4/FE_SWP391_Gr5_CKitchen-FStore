@@ -99,6 +99,14 @@ const managerService = {
         .then((r) => r.data),
   },
 
+  // ── Kitchen Inventory (read-only for manager) ─────────────────────────────
+  kitchenInventory: {
+    getAll: ({ ingredientName, page = 0, size = 200 } = {}) =>
+      api
+        .get("/central-kitchen/inventory", { params: { ingredientName, page, size } })
+        .then((r) => r.data.data),
+  },
+
   // ── Recipes ───────────────────────────────────────────────────────────────
   recipes: {
     getAll: ({ pageNum = 0, size = 20 } = {}) =>

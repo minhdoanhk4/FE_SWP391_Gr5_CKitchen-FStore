@@ -47,6 +47,11 @@ const supplyService = {
   getOrderStatuses: () =>
     api.get("/supply-coordinator/order-statuses").then((r) => r.data.data),
 
+  getPickupQr: (orderId) =>
+    api
+      .get(`/supply-coordinator/orders/${orderId}/pickup-qr`)
+      .then((r) => r.data.data),
+
   // ── Deliveries ────────────────────────────────────────────────────────────
   createDelivery: ({ orderId, status, assignedAt, notes }) =>
     api

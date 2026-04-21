@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "CKitchen Shipper",
+    "slug": "ckitchen-shipper",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Cần quyền camera để quét mã QR đơn hàng"
+      }
+    },
+    "android": {
+      "permissions": ["android.permission.CAMERA"]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Cần quyền camera để quét mã QR đơn hàng"
+        }
+      ]
+    ]
+  }
+}

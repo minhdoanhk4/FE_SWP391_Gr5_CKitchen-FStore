@@ -10,7 +10,10 @@ import {
   ArrowRight,
   Building2,
   Loader2,
+  QrCode,
+  Copy,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import {
@@ -223,6 +226,10 @@ export default function SupplyOrders() {
   const [kitchenId, setKitchenId] = useState("");
   const [assignNotes, setAssignNotes] = useState("");
 
+  // QR modal
+  const [qrData, setQrData] = useState(null);
+  const [qrLoading, setQrLoading] = useState(false);
+
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
@@ -276,6 +283,21 @@ export default function SupplyOrders() {
       toast.error(
         err.response?.data?.message || "Không thể điều phối đơn hàng",
       );
+    }
+  };
+
+  // ── Sinh QR ──────────────────────────────────────────────────────────────
+  const handleGetQr = async (e, order) => {
+    e.stopPropagation();
+    const orderId = order.orderId || order.id;
+    setQrLoading(true);
+    try {
+      const data = await supplyService.getPickupQr(orderId);
+      setQrData(data);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Không thể tạo mã QR");
+    } finally {
+      setQrLoading(false);
     }
   };
 
@@ -340,7 +362,7 @@ export default function SupplyOrders() {
     {
       header: "Thao tác",
       accessor: "actions",
-      width: "200px",
+      width: "240px",
       render: (row) => (
         <div style={{ display: "flex", gap: "4px" }}>
           <Button
@@ -362,6 +384,18 @@ export default function SupplyOrders() {
               onClick={(e) => openAssignKitchen(e, row)}
             >
               Gán bếp
+            </Button>
+          )}
+          {(row.status === "PACKED_WAITING_SHIPPER" ||
+            row.status === "SHIPPING") && (
+            <Button
+              variant="primary"
+              size="sm"
+              icon={QrCode}
+              disabled={qrLoading}
+              onClick={(e) => handleGetQr(e, row)}
+            >
+              Sinh QR
             </Button>
           )}
         </div>
@@ -505,6 +539,101 @@ export default function SupplyOrders() {
               onChange={(e) => setAssignNotes(e.target.value)}
               placeholder="Ghi chú thêm..."
             />
+          </div>
+        )}
+      </Modal>
+      {/* QR modal */}
+      <Modal
+        isOpen={!!qrData}
+        onClose={() => setQrData(null)}
+        title="Mã QR giao hàng"
+        size="sm"
+        footer={
+          <Button variant="secondary" onClick={() => setQrData(null)}>
+            Đóng
+          </Button>
+        }
+      >
+        {qrData && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "16px",
+            }}
+          >
+            <QRCodeSVG value={qrData.pickupQrCode} size={200} />
+
+            <div
+              style={{
+                width: "100%",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+                fontSize: "13px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  padding: "8px 12px",
+                  background: "var(--surface-hover)",
+                  borderRadius: "var(--radius-sm)",
+                }}
+              >
+                <span style={{ color: "var(--text-muted)" }}>Mã đơn</span>
+                <span className="font-mono" style={{ fontWeight: 600 }}>
+                  {qrData.orderId}
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  padding: "8px 12px",
+                  background: "var(--surface-hover)",
+                  borderRadius: "var(--radius-sm)",
+                }}
+              >
+                <span style={{ color: "var(--text-muted)" }}>Mã vận đơn</span>
+                <span className="font-mono" style={{ fontWeight: 600 }}>
+                  {qrData.deliveryId}
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "8px 12px",
+                  background: "var(--surface-hover)",
+                  borderRadius: "var(--radius-sm)",
+                }}
+              >
+                <span style={{ color: "var(--text-muted)" }}>Mã QR</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span
+                    className="font-mono"
+                    style={{ fontSize: "12px", color: "var(--text-secondary)" }}
+                  >
+                    {qrData.pickupQrCode}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    icon={Copy}
+                    title="Sao chép"
+                    onClick={() => {
+                      navigator.clipboard.writeText(qrData.pickupQrCode);
+                      toast.success("Đã sao chép mã QR");
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </Modal>
