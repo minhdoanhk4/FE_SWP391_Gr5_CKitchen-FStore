@@ -1,302 +1,141 @@
-import { useState, useMemo, useRef } from "react";
-import { Plus, Trash2, Download, Upload } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Download, Upload, Eye, Trash2, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { DataTable, Badge, Button, Modal, Card } from "../../components/ui";
-import { Input, Select } from "../../components/ui";
-import { useAuth } from "../../contexts/AuthContext";
+import { Input } from "../../components/ui";
 import { useData } from "../../contexts/DataContext";
+import storeService from "../../services/storeService";
 
 export default function StoreSales() {
-  const { user } = useAuth();
-  const {
-    salesRecords,
-    storeInventory,
-    products,
-    addSale,
-    updateStoreInventory,
-    addAuditLog,
-    formatCurrency,
-    formatDate,
-    formatDateTime,
-  } = useData();
+  const { formatCurrency, formatDate } = useData();
+  const fileInputRef = useRef(null);
 
-  const [showModal, setShowModal] = useState(false);
-  const [saleItems, setSaleItems] = useState([{ productId: "", quantity: "" }]);
-  const [saleDate, setSaleDate] = useState(
+  const [sales, setSales] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+
+  // Import modal
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importDate, setImportDate] = useState(
     new Date().toISOString().split("T")[0],
   );
-  const [errors, setErrors] = useState({});
+  const [importFile, setImportFile] = useState(null);
+  const [importing, setImporting] = useState(false);
 
-  const fileInputRef = useRef(null);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [importPreview, setImportPreview] = useState([]);
+  // Detail modal
+  const [detailDate, setDetailDate] = useState(null);
+  const [detail, setDetail] = useState([]);
+  const [detailLoading, setDetailLoading] = useState(false);
 
-  // Filter sales for this store
-  const storeSales = salesRecords.filter((s) => s.storeId === user.store);
+  // Delete confirmation
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
-  // Products available in this store's inventory
-  const storeProducts = useMemo(() => {
-    const inv = storeInventory.filter((i) => i.storeId === user.store);
-    return inv.map((i) => {
-      const product = products.find((p) => p.id === i.productId);
-      return {
-        value: i.productId,
-        label: `${i.productName} (tồn: ${i.quantity} ${i.unit})`,
-        stock: i.quantity,
-        unit: i.unit,
-        price: product?.price || 0,
-        inventoryId: i.id,
-        productName: i.productName,
-      };
-    });
-  }, [storeInventory, products, user.store]);
-
-  const handleAddItem = () => {
-    setSaleItems((prev) => [...prev, { productId: "", quantity: "" }]);
+  const fetchSales = async () => {
+    setLoading(true);
+    try {
+      const resp = await storeService.getSalesDaily({ size: 100 });
+      const rows = resp?.content ?? resp ?? [];
+      setSales(rows);
+      const total = rows.reduce((s, r) => s + (r.totalRevenue ?? 0), 0);
+      setTotalRevenue(total);
+    } catch {
+      toast.error("Không thể tải dữ liệu bán hàng");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleRemoveItem = (idx) => {
-    setSaleItems((prev) => prev.filter((_, i) => i !== idx));
+  useEffect(() => {
+    fetchSales();
+  }, []);
+
+  // ── Template download ────────────────────────────────────────────────────
+  const handleDownloadTemplate = async () => {
+    try {
+      const blob = await storeService.downloadSalesTemplate();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "sales_report_template.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Không thể tải mẫu báo cáo");
+    }
   };
 
-  const handleItemChange = (idx, field, value) => {
-    setSaleItems((prev) =>
-      prev.map((item, i) => (i === idx ? { ...item, [field]: value } : item)),
-    );
-  };
-
-  const totalRevenue = useMemo(() => {
-    return saleItems.reduce((sum, item) => {
-      const prod = storeProducts.find((p) => p.value === item.productId);
-      if (!prod || !item.quantity) return sum;
-      return sum + prod.price * parseInt(item.quantity);
-    }, 0);
-  }, [saleItems, storeProducts]);
-
-  const validate = () => {
-    const errs = {};
-    if (!saleDate) errs.date = "Vui lòng chọn ngày";
-    const validItems = saleItems.filter(
-      (i) => i.productId && parseInt(i.quantity) > 0,
-    );
-    if (validItems.length === 0)
-      errs.items = "Vui lòng thêm ít nhất 1 sản phẩm";
-    validItems.forEach((item, idx) => {
-      const prod = storeProducts.find((p) => p.value === item.productId);
-      if (prod && parseInt(item.quantity) > prod.stock) {
-        errs[`item_${idx}`] = `Vượt tồn kho (còn ${prod.stock})`;
-      }
-    });
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
-  const handleSave = () => {
-    if (!validate()) return;
-
-    const validItems = saleItems
-      .filter((i) => i.productId && parseInt(i.quantity) > 0)
-      .map((item) => {
-        const prod = storeProducts.find((p) => p.value === item.productId);
-        return {
-          productId: item.productId,
-          productName: prod?.productName || item.productId,
-          quantity: parseInt(item.quantity),
-          unit: prod?.unit || "phần",
-          unitPrice: prod?.price || 0,
-        };
-      });
-
-    const revenue = validItems.reduce(
-      (sum, i) => sum + i.quantity * i.unitPrice,
-      0,
-    );
-
-    const saleId = `SR${Date.now().toString().slice(-6)}`;
-    addSale({
-      id: saleId,
-      storeId: user.store,
-      date: saleDate,
-      items: validItems,
-      totalRevenue: revenue,
-      recordedBy: user.name,
-      recordedAt: new Date().toISOString(),
-    });
-
-    // Auto-deduct from store inventory
-    validItems.forEach((item) => {
-      const inv = storeInventory.find(
-        (i) => i.storeId === user.store && i.productId === item.productId,
-      );
-      if (inv) {
-        updateStoreInventory(inv.id, {
-          quantity: Math.max(0, inv.quantity - item.quantity),
-        });
-      }
-    });
-
-    addAuditLog(
-      "sale_recorded",
-      user.name,
-      `Ghi nhận doanh thu ${formatCurrency(revenue)} (${validItems.length} SP)`,
-      "sales",
-    );
-
-    toast.success(`Ghi nhận doanh thu ${formatCurrency(revenue)}`);
-    setShowModal(false);
-    setSaleItems([{ productId: "", quantity: "" }]);
-  };
-
-  const handleDownloadTemplate = () => {
-    const header = "Ngay ban,Ma san pham,Ten san pham,So luong";
-    const today = new Date().toISOString().split("T")[0];
-    const rows = storeProducts.map(
-      (p) => `${today},${p.value},"${p.label.split(" (")[0]}",0`,
-    );
-    const csv = [header, ...rows].join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `mau_ghi_nhan_ban_hang_${today}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImportClick = () => fileInputRef.current?.click();
-
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // ── Import ────────────────────────────────────────────────────────────────
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0] ?? null;
+    if (file) setImportFile(file);
     e.target.value = "";
-
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target.result.replace(/^\uFEFF/, "");
-      const lines = text.split(/\r?\n/).filter((l) => l.trim());
-      if (lines.length < 2) {
-        toast.error("File không có dữ liệu");
-        return;
-      }
-      const parsed = lines.slice(1).map((line, idx) => {
-        // Handle quoted fields
-        const cols = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|^(?=,)|(?<=,)$)/g) || [];
-        const clean = cols.map((c) => c.replace(/^"|"$/g, "").trim());
-        const [date, productId, , qty] = clean;
-        const prod = storeProducts.find(
-          (p) =>
-            p.value === productId ||
-            p.label.split(" (")[0].toLowerCase() === (productId || "").toLowerCase(),
-        );
-        const quantity = parseInt(qty);
-        let error = null;
-        if (!date) error = "Thiếu ngày bán";
-        else if (!prod) error = `Không tìm thấy sản phẩm "${productId}"`;
-        else if (!quantity || quantity <= 0) error = "Số lượng không hợp lệ";
-        else if (quantity > prod.stock) error = `Vượt tồn kho (còn ${prod.stock})`;
-        return {
-          rowNum: idx + 2,
-          date,
-          productId: prod?.value || productId,
-          productName: prod?.label.split(" (")[0] || productId,
-          quantity: isNaN(quantity) ? 0 : quantity,
-          unitPrice: prod?.price || 0,
-          unit: prod?.unit || "",
-          stock: prod?.stock || 0,
-          error,
-        };
-      });
-      setImportPreview(parsed);
-      setShowImportModal(true);
-    };
-    reader.readAsText(file, "UTF-8");
   };
 
-  const handleImportConfirm = () => {
-    const validRows = importPreview.filter((r) => !r.error && r.quantity > 0);
-    if (validRows.length === 0) {
-      toast.error("Không có dòng hợp lệ để nhập");
+  const handleImportConfirm = async () => {
+    if (!importFile) {
+      toast.error("Vui lòng chọn file Excel");
       return;
     }
-
-    // Group by date
-    const byDate = {};
-    validRows.forEach((r) => {
-      if (!byDate[r.date]) byDate[r.date] = [];
-      byDate[r.date].push(r);
-    });
-
-    let totalRev = 0;
-    Object.entries(byDate).forEach(([date, items]) => {
-      const saleId = `SR${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 100)}`;
-      const revenue = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-      totalRev += revenue;
-      addSale({
-        id: saleId,
-        storeId: user.store,
-        date,
-        items: items.map((i) => ({
-          productId: i.productId,
-          productName: i.productName,
-          quantity: i.quantity,
-          unit: i.unit,
-          unitPrice: i.unitPrice,
-        })),
-        totalRevenue: revenue,
-        recordedBy: user.name,
-        recordedAt: new Date().toISOString(),
-      });
-
-      items.forEach((item) => {
-        const inv = storeInventory.find(
-          (i) => i.storeId === user.store && i.productId === item.productId,
-        );
-        if (inv) {
-          updateStoreInventory(inv.id, {
-            quantity: Math.max(0, inv.quantity - item.quantity),
-          });
-        }
-      });
-    });
-
-    addAuditLog(
-      "sale_recorded",
-      user.name,
-      `Import ${validRows.length} dòng, doanh thu ${formatCurrency(totalRev)}`,
-      "sales",
-    );
-
-    toast.success(`Đã nhập ${validRows.length} dòng — ${formatCurrency(totalRev)}`);
-    setShowImportModal(false);
-    setImportPreview([]);
+    if (!importDate) {
+      toast.error("Vui lòng chọn ngày báo cáo");
+      return;
+    }
+    setImporting(true);
+    try {
+      await storeService.importSales(importFile, importDate);
+      toast.success("Import báo cáo bán hàng thành công");
+      setShowImportModal(false);
+      setImportFile(null);
+      fetchSales();
+    } catch (err) {
+      const msg = err.response?.data?.message ?? "Import thất bại";
+      toast.error(msg);
+    } finally {
+      setImporting(false);
+    }
   };
+
+  // ── Detail view ──────────────────────────────────────────────────────────
+  const handleViewDetail = async (date) => {
+    setDetailDate(date);
+    setDetail([]);
+    setDetailLoading(true);
+    try {
+      const resp = await storeService.getSalesDailyDetail(date, { size: 100 });
+      setDetail(resp?.items ?? []);
+    } catch {
+      toast.error("Không thể tải chi tiết");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  // ── Delete ────────────────────────────────────────────────────────────────
+  const handleDeleteConfirm = async () => {
+    if (!confirmDelete) return;
+    try {
+      await storeService.clearSales(confirmDelete);
+      toast.success(`Đã xóa báo cáo ngày ${confirmDelete}`);
+      setConfirmDelete(null);
+      fetchSales();
+    } catch (err) {
+      const msg = err.response?.data?.message ?? "Không thể xóa báo cáo";
+      toast.error(msg);
+    }
+  };
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  const today = new Date().toISOString().split("T")[0];
+  const todayRow = sales.find((s) => s.reportDate === today);
+  const todayRevenue = todayRow?.totalRevenue ?? 0;
 
   const columns = [
     {
-      header: "Mã",
-      accessor: "id",
-      width: "100px",
-      render: (r) => <span className="font-mono">{r.id}</span>,
-    },
-    {
       header: "Ngày",
-      accessor: "date",
+      accessor: "reportDate",
       sortable: true,
-      render: (r) => formatDate(r.date),
-    },
-    {
-      header: "Sản phẩm",
-      accessor: "items",
-      render: (r) => (
-        <div>
-          {r.items.map((item, i) => (
-            <div key={i} style={{ fontSize: "13px" }}>
-              {item.productName} x {item.quantity}
-            </div>
-          ))}
-        </div>
-      ),
+      render: (r) => <span className="font-mono">{formatDate(r.reportDate)}</span>,
     },
     {
       header: "Doanh thu",
@@ -307,55 +146,79 @@ export default function StoreSales() {
           className="font-mono"
           style={{ fontWeight: 600, color: "var(--success)" }}
         >
-          {formatCurrency(r.totalRevenue)}
+          {formatCurrency(r.totalRevenue ?? 0)}
         </span>
       ),
     },
     {
-      header: "Ghi nhận bởi",
-      accessor: "recordedBy",
+      header: "Số lượng SP",
+      accessor: "itemCount",
+      render: (r) => (
+        <Badge variant="neutral">{r.itemCount ?? "—"}</Badge>
+      ),
     },
     {
-      header: "Thời gian",
-      accessor: "recordedAt",
-      render: (r) => formatDateTime(r.recordedAt),
+      header: "",
+      width: "100px",
+      render: (row) => (
+        <div style={{ display: "flex", gap: "4px" }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            icon={Eye}
+            title="Chi tiết"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewDetail(row.reportDate);
+            }}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            icon={Trash2}
+            title="Xóa báo cáo"
+            onClick={(e) => {
+              e.stopPropagation();
+              setConfirmDelete(row.reportDate);
+            }}
+          />
+        </div>
+      ),
     },
   ];
 
-  // Summary stats
-  const todayRevenue = storeSales
-    .filter((s) => s.date === new Date().toISOString().split("T")[0])
-    .reduce((sum, s) => sum + s.totalRevenue, 0);
-  const totalAllRevenue = storeSales.reduce(
-    (sum, s) => sum + s.totalRevenue,
-    0,
-  );
-
   return (
     <PageWrapper
-      title="Ghi nhận bán hàng"
-      subtitle="Cập nhật doanh thu bán hàng hàng ngày"
+      title="Báo cáo bán hàng"
+      subtitle="Nhập và theo dõi doanh thu bán hàng hàng ngày"
       actions={
         <>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv"
+            accept=".xlsx,.xls"
             style={{ display: "none" }}
-            onChange={handleFileChange}
+            onChange={handleFileSelect}
           />
-          <Button variant="secondary" icon={Download} onClick={handleDownloadTemplate}>
+          <Button variant="secondary" icon={RefreshCw} onClick={fetchSales}>
+            Làm mới
+          </Button>
+          <Button
+            variant="secondary"
+            icon={Download}
+            onClick={handleDownloadTemplate}
+          >
             Tải mẫu Excel
           </Button>
-          <Button variant="secondary" icon={Upload} onClick={handleImportClick}>
-            Import Excel
-          </Button>
-          <Button icon={Plus} onClick={() => setShowModal(true)}>
-            Ghi nhận bán hàng
+          <Button icon={Upload} onClick={() => setShowImportModal(true)}>
+            Nhập báo cáo
           </Button>
         </>
       }
     >
+      {/* Stats */}
       <div
         style={{
           display: "grid",
@@ -391,174 +254,213 @@ export default function StoreSales() {
               color: "var(--primary)",
             }}
           >
-            {formatCurrency(totalAllRevenue)}
+            {formatCurrency(totalRevenue)}
           </p>
         </Card>
         <Card>
           <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-            Số lượt ghi nhận
+            Số ngày có báo cáo
           </span>
-          <p style={{ fontSize: "20px", fontWeight: 700 }}>
-            {storeSales.length}
-          </p>
+          <p style={{ fontSize: "20px", fontWeight: 700 }}>{sales.length}</p>
         </Card>
       </div>
 
       <DataTable
         columns={columns}
-        data={storeSales}
-        searchPlaceholder="Tìm theo mã, ngày..."
-        emptyTitle="Chưa có dữ liệu bán hàng"
-        emptyDesc="Bấm 'Ghi nhận bán hàng' để bắt đầu."
+        data={sales}
+        loading={loading}
+        searchPlaceholder="Tìm theo ngày..."
+        emptyTitle="Chưa có báo cáo bán hàng"
+        emptyDesc="Tải mẫu Excel, điền dữ liệu và nhập báo cáo hàng ngày."
       />
 
+      {/* Import modal */}
       <Modal
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        title="Ghi nhận bán hàng"
-        size="lg"
+        isOpen={showImportModal}
+        onClose={() => {
+          setShowImportModal(false);
+          setImportFile(null);
+        }}
+        title="Nhập báo cáo bán hàng"
+        size="sm"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setShowModal(false)}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowImportModal(false);
+                setImportFile(null);
+              }}
+            >
               Hủy
             </Button>
-            <Button onClick={handleSave}>Lưu doanh thu</Button>
+            <Button onClick={handleImportConfirm} disabled={importing}>
+              {importing ? "Đang nhập..." : "Xác nhận nhập"}
+            </Button>
           </>
         }
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <Input
-            label="Ngày bán"
+            label="Ngày báo cáo"
             type="date"
             required
-            value={saleDate}
-            onChange={(e) => setSaleDate(e.target.value)}
-            error={errors.date}
+            value={importDate}
+            onChange={(e) => setImportDate(e.target.value)}
           />
-
-          {errors.items && (
-            <p style={{ color: "var(--danger)", fontSize: "13px" }}>
-              {errors.items}
-            </p>
-          )}
-
-          {saleItems.map((item, idx) => {
-            const prod = storeProducts.find((p) => p.value === item.productId);
-            return (
-              <div
-                key={idx}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 120px 40px",
-                  gap: "8px",
-                  alignItems: "start",
-                }}
-              >
-                <Select
-                  label={idx === 0 ? "Sản phẩm" : ""}
-                  options={storeProducts}
-                  value={item.productId}
-                  onChange={(e) =>
-                    handleItemChange(idx, "productId", e.target.value)
-                  }
-                />
-                <Input
-                  label={idx === 0 ? "Số lượng" : ""}
-                  type="number"
-                  min="1"
-                  max={prod?.stock || 9999}
-                  value={item.quantity}
-                  onChange={(e) =>
-                    handleItemChange(idx, "quantity", e.target.value)
-                  }
-                  error={errors[`item_${idx}`]}
-                />
-                {saleItems.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    iconOnly
-                    icon={Trash2}
-                    onClick={() => handleRemoveItem(idx)}
-                    style={{ marginTop: idx === 0 ? "24px" : "0" }}
-                  />
-                )}
-              </div>
-            );
-          })}
-
-          <Button variant="secondary" size="sm" onClick={handleAddItem}>
-            + Thêm sản phẩm
-          </Button>
-
-          {totalRevenue > 0 && (
-            <div
+          <div>
+            <p
               style={{
-                padding: "12px",
-                background: "var(--primary-bg)",
-                borderRadius: "var(--radius-md)",
-                fontSize: "14px",
+                fontSize: "13px",
+                fontWeight: 600,
+                marginBottom: "8px",
+                color: "var(--text-secondary)",
               }}
             >
-              Tổng doanh thu:{" "}
-              <strong style={{ color: "var(--success)" }}>
-                {formatCurrency(totalRevenue)}
-              </strong>
-            </div>
-          )}
+              File Excel (.xlsx)
+            </p>
+            <Button
+              variant="secondary"
+              icon={Upload}
+              onClick={() => fileInputRef.current?.click()}
+              style={{ width: "100%" }}
+            >
+              {importFile ? importFile.name : "Chọn file Excel..."}
+            </Button>
+            <p
+              style={{
+                fontSize: "12px",
+                color: "var(--text-muted)",
+                marginTop: "6px",
+              }}
+            >
+              Sử dụng mẫu tải về từ nút "Tải mẫu Excel" ở trên.
+            </p>
+          </div>
         </div>
       </Modal>
 
-      {/* Import preview modal */}
+      {/* Detail modal */}
       <Modal
-        isOpen={showImportModal}
-        onClose={() => { setShowImportModal(false); setImportPreview([]); }}
-        title="Xem trước dữ liệu import"
+        isOpen={!!detailDate}
+        onClose={() => {
+          setDetailDate(null);
+          setDetail([]);
+        }}
+        title={`Chi tiết bán hàng — ${detailDate ? formatDate(detailDate) : ""}`}
         size="lg"
         footer={
-          <>
-            <Button variant="secondary" onClick={() => { setShowImportModal(false); setImportPreview([]); }}>
-              Hủy
-            </Button>
-            <Button
-              onClick={handleImportConfirm}
-              disabled={importPreview.every((r) => r.error)}
-            >
-              Nhập {importPreview.filter((r) => !r.error).length} dòng hợp lệ
-            </Button>
-          </>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setDetailDate(null);
+              setDetail([]);
+            }}
+          >
+            Đóng
+          </Button>
         }
       >
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+        {detailLoading ? (
+          <p
+            style={{
+              textAlign: "center",
+              padding: "32px",
+              color: "var(--text-muted)",
+            }}
+          >
+            Đang tải...
+          </p>
+        ) : detail.length === 0 ? (
+          <p
+            style={{
+              textAlign: "center",
+              padding: "32px",
+              color: "var(--text-muted)",
+            }}
+          >
+            Không có dữ liệu chi tiết
+          </p>
+        ) : (
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              fontSize: "14px",
+            }}
+          >
             <thead>
               <tr style={{ background: "var(--surface-hover)" }}>
-                {["Dòng", "Ngày bán", "Sản phẩm", "Số lượng", "Trạng thái"].map((h) => (
-                  <th key={h} style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
+                {["Sản phẩm", "Số lượng", "Đơn giá", "Thành tiền"].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      padding: "8px 12px",
+                      textAlign: "left",
+                      fontWeight: 600,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {importPreview.map((row) => (
+              {detail.map((item, i) => (
                 <tr
-                  key={row.rowNum}
-                  style={{ borderTop: "1px solid var(--surface-border)", background: row.error ? "rgba(var(--danger-rgb,220,53,69),0.05)" : undefined }}
+                  key={i}
+                  style={{ borderTop: "1px solid var(--surface-border)" }}
                 >
-                  <td style={{ padding: "6px 10px", color: "var(--text-muted)" }}>{row.rowNum}</td>
-                  <td style={{ padding: "6px 10px" }}>{row.date || "—"}</td>
-                  <td style={{ padding: "6px 10px" }}>{row.productName}</td>
-                  <td style={{ padding: "6px 10px" }}>{row.quantity}</td>
-                  <td style={{ padding: "6px 10px" }}>
-                    {row.error
-                      ? <span style={{ color: "var(--danger)", fontSize: "12px" }}>{row.error}</span>
-                      : <span style={{ color: "var(--success)", fontSize: "12px" }}>Hợp lệ</span>
-                    }
+                  <td style={{ padding: "8px 12px" }}>{item.productName}</td>
+                  <td style={{ padding: "8px 12px" }}>
+                    {item.quantity} {item.unit}
+                  </td>
+                  <td style={{ padding: "8px 12px" }} className="font-mono">
+                    {formatCurrency(item.unitPrice ?? 0)}
+                  </td>
+                  <td
+                    style={{
+                      padding: "8px 12px",
+                      fontWeight: 600,
+                      color: "var(--success)",
+                    }}
+                    className="font-mono"
+                  >
+                    {formatCurrency(item.lineTotal ?? (item.quantity ?? 0) * (item.unitPrice ?? 0))}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        )}
+      </Modal>
+
+      {/* Delete confirmation */}
+      <Modal
+        isOpen={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        title="Xác nhận xóa báo cáo"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmDelete(null)}>
+              Hủy
+            </Button>
+            <Button variant="danger" onClick={handleDeleteConfirm}>
+              Xóa báo cáo
+            </Button>
+          </>
+        }
+      >
+        <p style={{ fontSize: "14px" }}>
+          Bạn có chắc muốn xóa báo cáo ngày{" "}
+          <strong>{confirmDelete ? formatDate(confirmDelete) : ""}</strong>?
+          <br />
+          <span style={{ color: "var(--text-muted)", fontSize: "13px" }}>
+            Tồn kho sẽ được khôi phục tương ứng.
+          </span>
+        </p>
       </Modal>
     </PageWrapper>
   );

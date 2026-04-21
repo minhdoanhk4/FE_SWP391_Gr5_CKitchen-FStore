@@ -76,13 +76,21 @@ const managerService = {
     /** @param {FileList|File[]} files */
     addImages: (id, files) =>
       api
-        .post(`/manager/products/${id}/images`, toFormData({ images: files }), MULTIPART)
+        .post(
+          `/manager/products/${id}/images`,
+          toFormData({ images: files }),
+          MULTIPART,
+        )
         .then((r) => r.data.data),
 
     /** @param {File} file */
     addImage: (id, file) =>
       api
-        .post(`/manager/products/${id}/image`, toFormData({ image: file }), MULTIPART)
+        .post(
+          `/manager/products/${id}/image`,
+          toFormData({ image: file }),
+          MULTIPART,
+        )
         .then((r) => r.data.data),
 
     deleteImage: (id, imageUrl) =>
@@ -105,6 +113,32 @@ const managerService = {
       api.put(`/manager/recipes/${id}`, payload).then((r) => r.data.data),
 
     delete: (id) => api.delete(`/manager/recipes/${id}`).then((r) => r.data),
+  },
+
+  // ── Sales (Manager view) ──────────────────────────────────────────────────
+  sales: {
+    getDaily: ({ fromDate, toDate, storeId } = {}) =>
+      api
+        .get("/manager/sales/daily", { params: { fromDate, toDate, storeId } })
+        .then((r) => r.data.data),
+
+    getTotal: ({ fromDate, toDate, storeId } = {}) =>
+      api
+        .get("/manager/sales/total", { params: { fromDate, toDate, storeId } })
+        .then((r) => r.data.data),
+
+    getStores: () => api.get("/manager/sales/stores").then((r) => r.data.data),
+
+    getKitchens: () =>
+      api.get("/manager/sales/kitchens").then((r) => r.data.data),
+
+    exportDaily: ({ fromDate, toDate, storeId } = {}) =>
+      api
+        .get("/manager/sales/daily/export", {
+          params: { fromDate, toDate, storeId },
+          responseType: "blob",
+        })
+        .then((r) => r.data),
   },
 };
 

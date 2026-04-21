@@ -28,11 +28,7 @@ import "../Dashboard.css";
 
 export default function StoreDashboard() {
   const { user } = useAuth();
-  const {
-    recentActivity = [],
-    weeklyOrders = [],
-    formatCurrency,
-  } = useData();
+  const { recentActivity = [], weeklyOrders = [], formatCurrency } = useData();
   const navigate = useNavigate();
 
   const [stats, setStats] = useState({
@@ -40,23 +36,32 @@ export default function StoreDashboard() {
     inTransitOrders: 0,
     todayRevenue: 0,
   });
+  const [storeName, setStoreName] = useState("");
   const [lowStock, setLowStock] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [overviewResp, inventoryResp] = await Promise.all([
+        const today = new Date().toISOString().split("T")[0];
+        const [overviewResp, inventoryResp, myStoreResp, salesResp] = await Promise.all([
           storeService.getOverview(),
-          storeService.getStoreInventory({ size: 100 }), // Get some inventory for low stock check
+          storeService.getStoreInventory({ size: 100 }),
+          storeService.getMyStore().catch(() => null),
+          storeService.getSalesDaily({ fromDate: today, toDate: today, size: 1 }).catch(() => null),
         ]);
-        
+
+        const salesRows = salesResp?.content ?? salesResp ?? [];
+        const todayRow = salesRows.find((r) => r.reportDate === today);
+
         setStats({
           pendingOrders: overviewResp.pendingOrders || 0,
           inTransitOrders: overviewResp.activeDeliveries || 0,
-          todayRevenue: 0, // Not provided by this API
+          todayRevenue: todayRow?.totalRevenue ?? 0,
         });
-        
+
+        if (myStoreResp?.name) setStoreName(myStoreResp.name);
+
         const low = (inventoryResp.content || []).filter((i) => i.lowStock);
         setLowStock(low);
       } catch (error) {
@@ -75,6 +80,7 @@ export default function StoreDashboard() {
         <p className="welcome-banner__greeting">Xin chào,</p>
         <h2 className="welcome-banner__name">{user?.name} 👋</h2>
         <p className="welcome-banner__summary">
+          {storeName && <span>{storeName} — </span>}
           Bạn có {stats.pendingOrders} đơn đang chờ xử lý và {lowStock.length}{" "}
           sản phẩm sắp hết hàng.
         </p>

@@ -1,15 +1,27 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Shield, User as UserIcon } from "lucide-react";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Shield,
+  User as UserIcon,
+  LogOut,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
-import { DataTable, Badge, Button, Modal, Input, Select } from "../../components/ui";
-import { useAuth, ROLES, ROLE_INFO } from "../../contexts/AuthContext";
-import { useData } from "../../contexts/DataContext";
+import {
+  DataTable,
+  Badge,
+  Button,
+  Modal,
+  Input,
+  Select,
+} from "../../components/ui";
+import { useAuth, ROLE_INFO } from "../../contexts/AuthContext";
 import adminService from "../../services/adminService";
 
 export default function UserManagement() {
   const { user: currentUser } = useAuth();
-  const { stores, formatDateTime, addAuditLog } = useData();
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,7 +61,6 @@ export default function UserManagement() {
     label: info.label,
   }));
 
-  const STORE_OPTIONS = stores.map((s) => ({ value: s.id, label: s.name }));
   const STATUS_OPTIONS = [
     { value: "ACTIVE", label: "Hoạt động" },
     { value: "DISABLED", label: "Vô hiệu" },
@@ -88,13 +99,14 @@ export default function UserManagement() {
   const validate = () => {
     const errs = {};
     if (!form.username?.trim()) errs.username = "Vui lòng nhập tên đăng nhập";
-    if (!editUser && !form.password?.trim()) errs.password = "Vui lòng nhập mật khẩu";
+    if (!editUser && !form.password?.trim())
+      errs.password = "Vui lòng nhập mật khẩu";
     if (!form.fullName?.trim()) errs.fullName = "Vui lòng nhập họ và tên";
     if (!form.email?.trim()) errs.email = "Vui lòng nhập email";
     if (!form.roleName) errs.roleName = "Vui lòng chọn vai trò";
-    
+
     setErrors(errs);
-    
+
     if (Object.keys(errs).length > 0) {
       const firstError = Object.values(errs)[0];
       toast.error(firstError);
@@ -107,7 +119,6 @@ export default function UserManagement() {
     if (!validate()) return;
     try {
       const id = editUser?.userId || editUser?.id;
-      const currentId = currentUser?.id || currentUser?.userId;
 
       if (editUser && id) {
         // Clean payload for update
@@ -124,7 +135,6 @@ export default function UserManagement() {
         }
 
         await adminService.users.update(id, updatePayload);
-        addAuditLog("user_updated", currentUser.name, `Cập nhật TK ${form.username}`, "users");
         toast.success(`Đã cập nhật thông tin người dùng ${form.fullName}`);
       } else {
         // Clean payload for creation
@@ -137,9 +147,8 @@ export default function UserManagement() {
           status: form.status,
           verify: form.verify,
         };
-        
+
         await adminService.users.create(createPayload);
-        addAuditLog("user_created", currentUser.name, `Tạo TK ${form.username}`, "users");
         toast.success(`Đã tạo người dùng ${form.fullName}`);
       }
       setShowModal(false);
@@ -163,7 +172,7 @@ export default function UserManagement() {
   const handleDelete = (userToDelete) => {
     const id = userToDelete.userId || userToDelete.id;
     const currentId = currentUser?.id || currentUser?.userId;
-    
+
     if (id === currentId) {
       toast.error("Không thể xóa tài khoản của chính bạn!");
       return;
@@ -176,12 +185,26 @@ export default function UserManagement() {
     const id = confirmDelete?.userId || confirmDelete?.id;
     try {
       await adminService.users.delete(id);
-      addAuditLog("user_deleted", currentUser.name, `Xóa TK ${confirmDelete.username}`, "users");
       toast.success("Đã xóa người dùng");
       setConfirmDelete(null);
       fetchUsers();
     } catch (err) {
       toast.error("Không thể xóa người dùng");
+    }
+  };
+
+  const handleForceLogout = async (row) => {
+    const id = row.userId || row.id;
+    const currentId = currentUser?.id || currentUser?.userId;
+    if (id === currentId) {
+      toast.error("Không thể ép đăng xuất tài khoản của chính bạn!");
+      return;
+    }
+    try {
+      await adminService.session.forceLogout(id);
+      toast.success(`Đã đăng xuất toàn bộ phiên của ${row.fullName}`);
+    } catch {
+      toast.error("Không thể ép đăng xuất người dùng này");
     }
   };
 
@@ -237,7 +260,7 @@ export default function UserManagement() {
     },
     {
       header: "",
-      width: "80px",
+      width: "110px",
       render: (row) => (
         <div style={{ display: "flex", gap: "4px" }}>
           <Button
@@ -249,6 +272,17 @@ export default function UserManagement() {
             onClick={(e) => {
               e.stopPropagation();
               handleEdit(row);
+            }}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            icon={LogOut}
+            title="Ép đăng xuất"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleForceLogout(row);
             }}
           />
           <Button
@@ -289,7 +323,9 @@ export default function UserManagement() {
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         title={
-          editUser ? `Sửa thông tin: ${editUser.fullName}` : "Thêm người dùng mới"
+          editUser
+            ? `Sửa thông tin: ${editUser.fullName}`
+            : "Thêm người dùng mới"
         }
         size="lg"
         footer={
@@ -316,7 +352,9 @@ export default function UserManagement() {
               required
               disabled={!!editUser}
               value={form.username}
-              onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, username: e.target.value }))
+              }
               placeholder="admin_01"
               error={errors.username}
             />
@@ -326,19 +364,23 @@ export default function UserManagement() {
                 required
                 type="password"
                 value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, password: e.target.value }))
+                }
                 placeholder="••••••••"
                 error={errors.password}
               />
             )}
             {editUser && (
-               <Input
-               label="Mật khẩu mới"
-               type="password"
-               value={form.password}
-               onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-               placeholder="Để trống nếu không đổi"
-             />
+              <Input
+                label="Mật khẩu mới"
+                type="password"
+                value={form.password}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, password: e.target.value }))
+                }
+                placeholder="Để trống nếu không đổi"
+              />
             )}
           </div>
           <div
@@ -352,7 +394,9 @@ export default function UserManagement() {
               label="Họ và tên"
               required
               value={form.fullName}
-              onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, fullName: e.target.value }))
+              }
               placeholder="Nguyễn Văn A"
               error={errors.fullName}
             />
@@ -418,7 +462,8 @@ export default function UserManagement() {
       >
         <p>
           Bạn có chắc muốn xóa người dùng{" "}
-          <strong>{confirmDelete?.fullName}</strong>? Hành động này không thể hoàn tác.
+          <strong>{confirmDelete?.fullName}</strong>? Hành động này không thể
+          hoàn tác.
         </p>
       </Modal>
     </PageWrapper>

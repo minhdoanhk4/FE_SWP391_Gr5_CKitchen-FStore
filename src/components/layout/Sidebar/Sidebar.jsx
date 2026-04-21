@@ -18,6 +18,7 @@ import {
   ChevronsRight,
   LogOut,
   DollarSign,
+  ScrollText,
   PackagePlus,
   Bell,
   User,
@@ -103,6 +104,11 @@ const NAV_CONFIG = {
         { to: "/admin/kitchens", icon: ChefHat, label: "Bếp Trung Tâm" },
         { to: "/admin/config", icon: Settings, label: "Cấu hình" },
         { to: "/admin/reports", icon: BarChart3, label: "Báo cáo hệ thống" },
+        {
+          to: "/admin/activity-logs",
+          icon: ScrollText,
+          label: "Nhật ký hoạt động",
+        },
       ],
     },
   ],
@@ -190,9 +196,12 @@ export default function Sidebar() {
             <div className="sidebar__user-name">{user.name}</div>
             <div className="sidebar__user-role">{roleInfo?.label}</div>
           </div>
-          <User size={14} className="sidebar__user-arrow" style={{ opacity: 0.5, marginLeft: 'auto' }} />
+          <User
+            size={14}
+            className="sidebar__user-arrow"
+            style={{ opacity: 0.5, marginLeft: "auto" }}
+          />
         </Link>
-
 
         <button
           className="sidebar__toggle"

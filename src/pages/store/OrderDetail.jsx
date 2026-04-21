@@ -9,6 +9,8 @@ import {
   Truck,
   CheckCircle,
   Clock,
+  Package,
+  XCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
@@ -17,57 +19,88 @@ import { useData } from "../../contexts/DataContext";
 import storeService from "../../services/storeService";
 import "./OrderDetail.css";
 
+// Backend statuses: PENDING → ASSIGNED → IN_PROGRESS → PACKED_WAITING_SHIPPER → SHIPPING → DELIVERED / CANCELLED
 const TIMELINE_STEPS = [
-  { status: "pending", label: "Tạo đơn", icon: FileText },
-  { status: "confirmed", label: "Xác nhận", icon: CheckCircle },
-  { status: "producing", label: "Sản xuất", icon: Clock },
-  { status: "ready", label: "Sẵn sàng", icon: CheckCircle },
-  { status: "shipping", label: "Giao hàng", icon: Truck },
-  { status: "delivered", label: "Hoàn thành", icon: CheckCircle },
+  { status: "PENDING", label: "Tạo đơn", icon: FileText },
+  { status: "ASSIGNED", label: "Đã nhận", icon: CheckCircle },
+  { status: "IN_PROGRESS", label: "Sản xuất", icon: Clock },
+  { status: "PACKED_WAITING_SHIPPER", label: "Đóng gói", icon: Package },
+  { status: "SHIPPING", label: "Giao hàng", icon: Truck },
+  { status: "DELIVERED", label: "Hoàn thành", icon: CheckCircle },
 ];
 
 const STATUS_ORDER = [
-  "pending",
-  "confirmed",
-  "producing",
-  "ready",
-  "shipping",
-  "delivered",
+  "PENDING",
+  "ASSIGNED",
+  "IN_PROGRESS",
+  "PACKED_WAITING_SHIPPER",
+  "SHIPPING",
+  "DELIVERED",
 ];
+
+// Map timeline field names to statuses
+const TIMELINE_FIELD_MAP = {
+  PENDING: "createdAt",
+  ASSIGNED: "assignedAt",
+  IN_PROGRESS: "inProgressAt",
+  PACKED_WAITING_SHIPPER: "packedWaitingShipperAt",
+  SHIPPING: "shippingAt",
+  DELIVERED: "deliveredAt",
+};
+
+const STATUS_LABELS = {
+  PENDING: "Chờ xử lý",
+  ASSIGNED: "Đã nhận",
+  IN_PROGRESS: "Đang sản xuất",
+  PACKED_WAITING_SHIPPER: "Chờ giao",
+  SHIPPING: "Đang giao",
+  DELIVERED: "Đã giao",
+  CANCELLED: "Đã hủy",
+};
+
+const STATUS_COLORS = {
+  PENDING: "warning",
+  ASSIGNED: "info",
+  IN_PROGRESS: "primary",
+  PACKED_WAITING_SHIPPER: "accent",
+  SHIPPING: "info",
+  DELIVERED: "success",
+  CANCELLED: "danger",
+};
 
 export default function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const {
-    products,
-    updateOrder,
-    STATUS_LABELS,
-    STATUS_COLORS,
-    formatCurrency,
-    formatDate,
-    formatDateTime,
-  } = useData();
+  const { formatCurrency, formatDate, formatDateTime } = useData();
 
   const [order, setOrder] = useState(null);
+  const [timeline, setTimeline] = useState(null);
+  const [priceMap, setPriceMap] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchDetail = async () => {
+    const fetchAll = async () => {
       try {
-        const resp = await storeService.getOrderById(id);
-        setOrder(resp);
-      } catch (err) {
+        const [orderResp, timelineResp, productsResp] = await Promise.all([
+          storeService.getOrderById(id),
+          storeService.getOrderTimeline(id).catch(() => null),
+          storeService.getAvailableProducts({ size: 200 }).catch(() => null),
+        ]);
+        setOrder(orderResp);
+        setTimeline(timelineResp);
+        const map = {};
+        (productsResp?.content ?? []).forEach((p) => { map[p.id] = p.price; });
+        setPriceMap(map);
+      } catch {
         toast.error("Không tìm thấy thông tin đơn hàng");
       } finally {
         setLoading(false);
       }
     };
-    fetchDetail();
+    fetchAll();
   }, [id]);
 
-  if (loading) {
-    return <PageWrapper title="Đang tải..." />;
-  }
+  if (loading) return <PageWrapper title="Đang tải..." />;
 
   if (!order) {
     return (
@@ -96,17 +129,13 @@ export default function OrderDetail() {
     );
   }
 
-  const orderStatus = order.status?.toLowerCase() || '';
-  const currentStepIndex = STATUS_ORDER.indexOf(orderStatus);
-
-  const handleCancel = () => {
-    updateOrder(order.id, { status: "cancelled" });
-    toast.success(`Đã hủy đơn hàng ${order.id}`);
-  };
+  const orderStatus = order.status?.toUpperCase() ?? "PENDING";
+  const isCancelled = orderStatus === "CANCELLED";
+  const currentStepIndex = isCancelled ? -1 : STATUS_ORDER.indexOf(orderStatus);
 
   return (
     <PageWrapper
-      title={`Chi tiết đơn hàng ${order.id}`}
+      title={`Chi tiết đơn hàng ${order.id ?? order.orderId}`}
       subtitle={`Tạo bởi ${order.createdBy} — ${formatDateTime(order.createdAt)}`}
       actions={
         <Button variant="ghost" icon={ArrowLeft} onClick={() => navigate(-1)}>
@@ -117,37 +146,58 @@ export default function OrderDetail() {
       {/* Status & Timeline */}
       <Card className="order-detail__timeline-card">
         <div className="order-detail__status-bar">
-          <Badge variant={STATUS_COLORS[orderStatus]} dot>
-            {STATUS_LABELS[orderStatus]}
+          <Badge variant={STATUS_COLORS[orderStatus] ?? "neutral"} dot>
+            {STATUS_LABELS[orderStatus] ?? orderStatus}
           </Badge>
-          {order.priority === "high" && (
-            <Badge variant="danger">Ưu tiên cao</Badge>
+          {isCancelled && (
+            <Badge variant="danger" icon={XCircle}>
+              Đã hủy
+            </Badge>
           )}
+          {order.priority === "HIGH" || order.priority === "high" ? (
+            <Badge variant="danger">Ưu tiên cao</Badge>
+          ) : null}
         </div>
-        <div className="order-detail__timeline">
-          {TIMELINE_STEPS.map((step, i) => {
-            const StepIcon = step.icon;
-            const isCompleted =
-              i <= currentStepIndex && order.status !== "cancelled";
-            const isCurrent = i === currentStepIndex;
-            return (
-              <div
-                key={step.status}
-                className={`timeline-step ${isCompleted ? "timeline-step--completed" : ""} ${isCurrent ? "timeline-step--current" : ""}`}
-              >
-                <div className="timeline-step__dot">
-                  <StepIcon size={16} />
+
+        {!isCancelled && (
+          <div className="order-detail__timeline">
+            {TIMELINE_STEPS.map((step, i) => {
+              const StepIcon = step.icon;
+              const isCompleted = i <= currentStepIndex;
+              const isCurrent = i === currentStepIndex;
+              const timestampField = TIMELINE_FIELD_MAP[step.status];
+              const ts = timeline?.[timestampField];
+              return (
+                <div
+                  key={step.status}
+                  className={`timeline-step ${isCompleted ? "timeline-step--completed" : ""} ${isCurrent ? "timeline-step--current" : ""}`}
+                >
+                  <div className="timeline-step__dot">
+                    <StepIcon size={16} />
+                  </div>
+                  <span className="timeline-step__label">{step.label}</span>
+                  {ts && (
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        color: "var(--text-muted)",
+                        display: "block",
+                        marginTop: "2px",
+                      }}
+                    >
+                      {formatDateTime(ts)}
+                    </span>
+                  )}
+                  {i < TIMELINE_STEPS.length - 1 && (
+                    <div
+                      className={`timeline-step__line ${isCompleted && i < currentStepIndex ? "timeline-step__line--filled" : ""}`}
+                    />
+                  )}
                 </div>
-                <span className="timeline-step__label">{step.label}</span>
-                {i < TIMELINE_STEPS.length - 1 && (
-                  <div
-                    className={`timeline-step__line ${isCompleted && i < currentStepIndex ? "timeline-step__line--filled" : ""}`}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </Card>
 
       <div className="order-detail__grid">
@@ -160,7 +210,7 @@ export default function OrderDetail() {
               <div>
                 <span className="order-detail__info-label">Mã đơn</span>
                 <span className="order-detail__info-value font-mono">
-                  {order.id}
+                  {order.id ?? order.orderId}
                 </span>
               </div>
             </div>
@@ -212,12 +262,9 @@ export default function OrderDetail() {
               <span style={{ textAlign: "right" }}>Số lượng</span>
               <span style={{ textAlign: "right" }}>Thành tiền</span>
             </div>
-            {order.items.map((item, i) => {
-              const unitPrice =
-                item.unitPrice ??
-                products.find((p) => p.id === item.productId)?.price ??
-                0;
-              const subtotal = unitPrice * item.quantity;
+            {(order.items ?? order.orderItems ?? []).map((item, i) => {
+              const unitPrice = priceMap[item.productId] ?? item.unitPrice ?? item.price ?? 0;
+              const subtotal = unitPrice * (item.quantity ?? 0);
               return (
                 <div key={i} className="order-detail__item-row">
                   <div>
@@ -251,20 +298,13 @@ export default function OrderDetail() {
             })}
             <div className="order-detail__items-total">
               <span>Tổng cộng</span>
-              <span className="font-mono">{formatCurrency(order.total)}</span>
+              <span className="font-mono">
+                {formatCurrency(order.total ?? order.totalAmount ?? 0)}
+              </span>
             </div>
           </div>
         </Card>
       </div>
-
-      {/* Action buttons */}
-      {order.status === "pending" && (
-        <div style={{ display: "flex", gap: "12px", marginTop: "20px" }}>
-          <Button variant="danger" onClick={handleCancel}>
-            Hủy đơn
-          </Button>
-        </div>
-      )}
     </PageWrapper>
   );
 }

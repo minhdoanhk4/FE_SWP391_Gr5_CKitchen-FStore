@@ -54,20 +54,26 @@ const adminService = {
       api.put(`/admin/catalog/stores/${id}`, payload).then((r) => r.data.data),
     updateStoreStatus: (id, status) =>
       api
-        .patch(`/admin/catalog/stores/${id}/status`, null, { params: { status } })
+        .patch(`/admin/catalog/stores/${id}/status`, null, {
+          params: { status },
+        })
         .then((r) => r.data.data),
 
     // Kitchens
     getKitchens: ({ name, status, page = 0, size = 20 } = {}) =>
       api
-        .get("/admin/catalog/kitchens", { params: { name, status, page, size } })
+        .get("/admin/catalog/kitchens", {
+          params: { name, status, page, size },
+        })
         .then((r) => r.data.data),
     getKitchenById: (id) =>
       api.get(`/admin/catalog/kitchens/${id}`).then((r) => r.data.data),
     createKitchen: (payload) =>
       api.post("/admin/catalog/kitchens", payload).then((r) => r.data.data),
     updateKitchen: (id, payload) =>
-      api.put(`/admin/catalog/kitchens/${id}`, payload).then((r) => r.data.data),
+      api
+        .put(`/admin/catalog/kitchens/${id}`, payload)
+        .then((r) => r.data.data),
     updateKitchenStatus: (id, status) =>
       api
         .patch(`/admin/catalog/kitchens/${id}/status`, null, {
@@ -96,6 +102,12 @@ const adminService = {
       api
         .get("/admin/reports/system-overview", { params: { fromDate, toDate } })
         .then((r) => r.data.data),
+  },
+
+  // ── Session Management (Admin actions) ─────────────────────────────────────
+  session: {
+    forceLogout: (userId) =>
+      api.post(`/session/force-logout/${userId}`).then((r) => r.data),
   },
 };
 

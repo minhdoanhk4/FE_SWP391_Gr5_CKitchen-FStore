@@ -295,7 +295,7 @@ export default function SupplyOrders() {
   const columns = [
     {
       header: "Mã đơn",
-      accessor: "orderId",
+      accessor: "id",
       sortable: true,
       width: "130px",
       render: (row) => (

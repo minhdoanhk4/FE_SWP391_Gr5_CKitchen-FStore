@@ -1,21 +1,13 @@
 import { useState, useEffect } from "react";
 import { Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
-import { useLocation } from "react-router-dom";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { DataTable, Badge, Button, Modal } from "../../components/ui";
-import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
 import storeService from "../../services/storeService";
 
 export default function StoreInventory() {
-  const { user } = useAuth();
-  const {
-    formatDate,
-    isExpiringSoon,
-    isExpired,
-  } = useData();
-  const location = useLocation();
+  const { formatDate, isExpiringSoon, isExpired } = useData();
 
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,12 +34,9 @@ export default function StoreInventory() {
   const handleDisposeConfirm = () => {
     if (!confirmDispose) return;
     const item = confirmDispose;
-    updateStoreInventory(item.id, { quantity: 0 });
-    addAuditLog(
-      "product_disposed",
-      user.name,
-      `Hủy ${item.quantity}${item.unit} ${item.productName} - hết hạn SD`,
-      "inventory",
+    // Update local state (no backend dispose endpoint — quantity zeroed locally)
+    setData((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, quantity: 0 } : i)),
     );
     toast.success(`Đã hủy ${item.quantity}${item.unit} ${item.productName}`);
     setConfirmDispose(null);
@@ -190,7 +179,8 @@ export default function StoreInventory() {
             fontWeight: 600,
           }}
         >
-          {expiredCount} sản phẩm hết hạn cần xử lý. Vui lòng hủy bỏ các sản phẩm hết hạn.
+          {expiredCount} sản phẩm hết hạn cần xử lý. Vui lòng hủy bỏ các sản
+          phẩm hết hạn.
         </div>
       )}
 
@@ -219,10 +209,15 @@ export default function StoreInventory() {
         }
       >
         {confirmDispose && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px" }}>
-            <p>
-              Bạn có chắc muốn hủy toàn bộ sản phẩm này?
-            </p>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+              fontSize: "14px",
+            }}
+          >
+            <p>Bạn có chắc muốn hủy toàn bộ sản phẩm này?</p>
             <div
               style={{
                 padding: "12px",
@@ -231,16 +226,32 @@ export default function StoreInventory() {
                 border: "1px solid var(--danger)",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "4px",
+                }}
+              >
                 <span>Sản phẩm:</span>
                 <strong>{confirmDispose.productName}</strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "4px",
+                }}
+              >
                 <span>Số lượng hủy:</span>
-                <strong>{confirmDispose.quantity} {confirmDispose.unit}</strong>
+                <strong>
+                  {confirmDispose.quantity} {confirmDispose.unit}
+                </strong>
               </div>
               {confirmDispose.expiryDate && (
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <div
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
                   <span>Hạn SD:</span>
                   <span style={{ color: "var(--danger)", fontWeight: 600 }}>
                     {formatDate(confirmDispose.expiryDate)}

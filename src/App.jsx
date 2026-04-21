@@ -54,6 +54,7 @@ import KitchenManagement from "./pages/admin/KitchenManagement";
 import ProductManagement from "./pages/admin/ProductManagement";
 import NotificationManagement from "./pages/admin/NotificationManagement";
 import SystemConfig from "./pages/admin/SystemConfig";
+import ActivityLogs from "./pages/admin/ActivityLogs";
 import Profile from "./pages/shared/Profile";
 
 // Styles
@@ -162,8 +163,12 @@ function AppRoutes() {
           <Route path="/admin/stores" element={<StoreManagement />} />
           <Route path="/admin/kitchens" element={<KitchenManagement />} />
           <Route path="/admin/products" element={<ProductManagement />} />
-          <Route path="/admin/notifications" element={<NotificationManagement />} />
+          <Route
+            path="/admin/notifications"
+            element={<NotificationManagement />}
+          />
           <Route path="/admin/config" element={<SystemConfig />} />
+          <Route path="/admin/activity-logs" element={<ActivityLogs />} />
           <Route
             path="/admin/reports"
             element={
