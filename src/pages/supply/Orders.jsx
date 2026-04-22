@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   MapPin,
   Calendar,
@@ -12,8 +12,9 @@ import {
   Loader2,
   QrCode,
   Copy,
+  Printer,
 } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import {
@@ -230,6 +231,41 @@ export default function SupplyOrders() {
   // QR modal
   const [qrData, setQrData] = useState(null);
   const [qrLoadingMap, setQrLoadingMap] = useState({});
+  const qrPrintRef = useRef(null);
+
+  const handlePrintQR = () => {
+    const canvas = qrPrintRef.current?.querySelector("canvas");
+    if (!canvas || !qrData) return;
+    const dataUrl = canvas.toDataURL("image/png");
+    const win = window.open("", "_blank");
+    win.document.write(`<!DOCTYPE html>
+<html><head><title>CKitchen - Nhãn giao hàng #${qrData.orderId}</title>
+<style>
+  @page { margin: 0; size: 10cm 13cm; }
+  body { margin: 0; font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: white; }
+  .label { width: 8.5cm; padding: 0.5cm; border: 2px dashed #ccc; border-radius: 8px; text-align: center; }
+  .brand { font-size: 20px; font-weight: bold; color: #e85d04; margin-bottom: 4px; letter-spacing: 2px; }
+  .subtitle { font-size: 11px; color: #999; margin-bottom: 12px; }
+  .qr-img { width: 180px; height: 180px; display: block; margin: 0 auto 14px; }
+  .info-row { display: flex; justify-content: space-between; padding: 6px 10px; background: #f5f5f5; border-radius: 4px; margin-bottom: 6px; font-size: 12px; }
+  .info-label { color: #888; }
+  .info-value { font-weight: 700; font-family: monospace; }
+  .qr-code-text { font-size: 9px; color: #bbb; margin-top: 10px; word-break: break-all; padding: 0 4px; }
+  .cut-hint { font-size: 10px; color: #ccc; margin-top: 10px; }
+</style></head>
+<body><div class="label">
+  <div class="brand">CKitchen</div>
+  <div class="subtitle">Nhãn giao hàng / Delivery Label</div>
+  <img class="qr-img" src="${dataUrl}" />
+  <div class="info-row"><span class="info-label">Mã đơn</span><span class="info-value">#${qrData.orderId}</span></div>
+  <div class="info-row"><span class="info-label">Mã vận đơn</span><span class="info-value">${qrData.deliveryId}</span></div>
+  <div class="qr-code-text">${qrData.pickupQrCode}</div>
+  <div class="cut-hint">✂ Cắt theo đường đứt nét</div>
+</div></body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 300);
+  };
 
   // Badge counts for action-required tabs
   const [pendingCount, setPendingCount] = useState(0);
@@ -634,9 +670,14 @@ export default function SupplyOrders() {
         title="Mã QR giao hàng"
         size="sm"
         footer={
-          <Button variant="secondary" onClick={() => setQrData(null)}>
-            Đóng
-          </Button>
+          <>
+            <Button variant="primary" icon={Printer} onClick={handlePrintQR}>
+              In nhãn (PDF)
+            </Button>
+            <Button variant="secondary" onClick={() => setQrData(null)}>
+              Đóng
+            </Button>
+          </>
         }
       >
         {qrData && (
@@ -649,6 +690,10 @@ export default function SupplyOrders() {
             }}
           >
             <QRCodeSVG value={qrData.pickupQrCode} size={200} />
+            {/* Hidden canvas for print data URL */}
+            <div ref={qrPrintRef} style={{ position: "absolute", left: "-9999px" }}>
+              <QRCodeCanvas value={qrData.pickupQrCode} size={250} />
+            </div>
 
             <div
               style={{
