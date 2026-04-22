@@ -59,12 +59,14 @@ const STATUS_FLOW = [
 ];
 
 // Fallback transition map — used when BE /order-statuses is unavailable
+// Kitchen owns: PENDING → ASSIGNED (via assign endpoint), ASSIGNED → IN_PROGRESS → PACKED_WAITING_SHIPPER
+// Shipper owns: PACKED_WAITING_SHIPPER → SHIPPING (via QR scan)
+// Store owns:   SHIPPING/WAITING_CONFIRM → DELIVERED (via confirm receipt)
 const DEFAULT_NEXT_STATUSES = {
   PENDING: ["IN_PROGRESS", "CANCELLED"],
   ASSIGNED: ["IN_PROGRESS", "CANCELLED"],
   IN_PROGRESS: ["PACKED_WAITING_SHIPPER", "CANCELLED"],
-  PACKED_WAITING_SHIPPER: ["SHIPPING", "CANCELLED"],
-  SHIPPING: ["DELIVERED"],
+  PACKED_WAITING_SHIPPER: ["CANCELLED"],
 };
 
 // Build a transition map from the flat list returned by GET /order-statuses.
@@ -90,7 +92,6 @@ const statusTabs = [
   { value: "ASSIGNED", label: "Đã tiếp nhận" },
   { value: "IN_PROGRESS", label: "Đang sản xuất" },
   { value: "PACKED_WAITING_SHIPPER", label: "Chờ shipper" },
-  { value: "SHIPPING", label: "Đang giao" },
 ];
 
 function formatDate(d) {

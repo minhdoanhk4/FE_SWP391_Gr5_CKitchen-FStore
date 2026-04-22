@@ -7,12 +7,10 @@ const shipperService = {
       .get("/shipper/orders/available", { params: { page, size } })
       .then((r) => r.data.data),
 
-  // List orders currently being delivered by this shipper (SHIPPING)
+  // List deliveries currently held by this shipper (SHIPPING / WAITING_CONFIRM)
   getMyActiveOrders: ({ page = 0, size = 20 } = {}) =>
     api
-      .get("/shipper/orders/available", {
-        params: { status: "SHIPPING", page, size },
-      })
+      .get("/shipper/deliveries/my", { params: { page, size } })
       .then((r) => r.data.data),
 
   // Step 3: Scan QR to claim order

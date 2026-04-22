@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ClipboardList,
   Truck,
@@ -28,6 +29,7 @@ import "../Dashboard.css";
 
 export default function SupplyDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [overview, setOverview] = useState(null);
   const [recentOrders, setRecentOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -80,7 +82,8 @@ export default function SupplyDashboard() {
         <p className="welcome-banner__greeting">Xin chào,</p>
         <h2 className="welcome-banner__name">{user?.name}</h2>
         <p className="welcome-banner__summary">
-          Có {overview?.pendingOrders ?? 0} đơn chờ phân phối và{" "}
+          Có {overview?.pendingOrders ?? 0} đơn chờ phân phối,{" "}
+          {overview?.packedWaitingShipperOrders ?? 0} đơn chờ shipper và{" "}
           {overview?.overdueOrders ?? 0} đơn quá hạn.
         </p>
       </div>
@@ -93,6 +96,12 @@ export default function SupplyDashboard() {
           color="warning"
         />
         <StatCard
+          label="Chờ shipper"
+          value={overview?.packedWaitingShipperOrders ?? 0}
+          icon={Package}
+          color="accent"
+        />
+        <StatCard
           label="Đang vận chuyển"
           value={overview?.shippingOrders ?? 0}
           icon={Truck}
@@ -102,7 +111,7 @@ export default function SupplyDashboard() {
           label="Chưa gán bếp"
           value={overview?.unassignedOrders ?? 0}
           icon={AlertTriangle}
-          color="accent"
+          color="warning"
         />
         <StatCard
           label="Giao hàng đang hoạt động"
@@ -179,7 +188,12 @@ export default function SupplyDashboard() {
               </p>
             )}
             {recentOrders.map((order) => (
-              <div key={order.orderId || order.id} className="activity-item">
+              <div
+                key={order.orderId || order.id}
+                className="activity-item"
+                onClick={() => navigate("/supply/orders")}
+                style={{ cursor: "pointer" }}
+              >
                 <div className="activity-item__icon activity-item__icon--delivery">
                   <Package size={16} />
                 </div>

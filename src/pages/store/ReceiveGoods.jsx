@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CheckCircle, Star } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
@@ -18,53 +18,61 @@ export default function ReceiveGoods() {
   const [feedback, setFeedback] = useState({});
   const [confirmedOrders, setConfirmedOrders] = useState([]);
 
-  useEffect(() => {
-    const fetchDeliveries = async () => {
-      try {
-        setLoading(true);
-        const resp = await storeService.getDeliveries({
-          status: "SHIPPING",
-          size: 50,
-        });
-        const rows = resp.content || [];
-        // Augment each delivery with order items + total
-        const enriched = await Promise.all(
-          rows.map(async (d) => {
-            if (!d.orderId) return d;
-            try {
-              const order = await storeService.getOrderById(d.orderId);
-              return {
-                ...d,
-                items: order.items ?? order.orderItems ?? [],
-                total: order.total ?? order.totalAmount ?? 0,
-              };
-            } catch {
-              return d;
-            }
-          }),
-        );
-        setDeliveries(enriched);
-      } catch (error) {
-        toast.error("Không thể tải danh sách đơn giao hàng");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchDeliveries();
+  const fetchDeliveries = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [resShipping, resWaiting] = await Promise.all([
+        storeService.getDeliveries({ status: "SHIPPING", size: 50 }),
+        storeService.getDeliveries({ status: "WAITING_CONFIRM", size: 50 }),
+      ]);
+      const rows = [
+        ...(resShipping.content || []),
+        ...(resWaiting.content || []),
+      ];
+      // Augment each delivery with order items + total
+      const enriched = await Promise.all(
+        rows.map(async (d) => {
+          if (!d.orderId) return d;
+          try {
+            const order = await storeService.getOrderById(d.orderId);
+            return {
+              ...d,
+              items: order.items ?? order.orderItems ?? [],
+              total: order.total ?? order.totalAmount ?? 0,
+            };
+          } catch {
+            return d;
+          }
+        }),
+      );
+      setDeliveries(enriched);
+    } catch (error) {
+      toast.error("Không thể tải danh sách đơn giao hàng");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchDeliveries();
+  }, [fetchDeliveries]);
 
   const handleConfirm = async (deliveryId, orderId) => {
     const orderFeedback = feedback[orderId] || {};
+    const ratingNote = orderFeedback.rating
+      ? ` | Đánh giá: ${orderFeedback.rating}/5 sao`
+      : "";
     try {
       await storeService.confirmReceipt(deliveryId, {
-        notes: orderFeedback.comment || "Đã nhận đủ",
+        notes: (orderFeedback.comment || "Đã nhận đủ") + ratingNote,
         temperatureOk: true,
-        receiverName: user?.name || "Store Staff",
+        receiverName: user?.name || user?.username || "Store Staff",
       });
       setConfirmedOrders((prev) => [...prev, orderId]);
       toast.success(
         `Đã xác nhận nhận hàng cho đơn ${orderId}! Tồn kho đã được cập nhật.`,
       );
+      fetchDeliveries();
     } catch (error) {
       toast.error(
         error.response?.data?.message || "Xác nhận nhận hàng thất bại",
@@ -179,7 +187,7 @@ export default function ReceiveGoods() {
                   ))}
                 </div>
 
-                {status === "shipping" &&
+                {(status === "shipping" || status === "waiting_confirm") &&
                   !confirmedOrders.includes(orderId) && (
                     <div
                       style={{

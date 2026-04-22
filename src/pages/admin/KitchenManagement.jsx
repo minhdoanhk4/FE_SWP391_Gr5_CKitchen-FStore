@@ -194,7 +194,7 @@ export default function KitchenManagement() {
             required
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            placeholder="Bếp Kizuna..."
+            placeholder="Bếp CKitchen..."
             error={errors.name}
           />
           <Input

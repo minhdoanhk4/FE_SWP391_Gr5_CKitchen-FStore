@@ -1,4 +1,4 @@
-﻿import { useState, useCallback } from "react";
+﻿import { useState, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -31,21 +31,31 @@ export default function AvailableOrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const loadingRef = useRef(false);
+
   const load = useCallback(async (isRefresh = false) => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     try {
       const data = await shipperService.getAvailableOrders();
       setOrders(data?.content ?? data ?? []);
-    } catch {
+    } catch (err) {
+      console.error(err);
       Alert.alert("Lỗi", "Không thể tải danh sách đơn hàng");
     } finally {
+      loadingRef.current = false;
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   const renderItem = ({ item }) => (
     <View style={styles.card}>
@@ -100,7 +110,10 @@ export default function AvailableOrdersScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={T.colors.primaryDark} />
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={T.colors.primaryDark}
+      />
 
       {/* Header */}
       <View style={styles.header}>
@@ -108,7 +121,11 @@ export default function AvailableOrdersScreen() {
           <Text style={styles.headerLabel}>CKITCHEN SHIPPER</Text>
           <Text style={styles.headerTitle}>Đơn chờ nhận</Text>
         </View>
-        <TouchableOpacity style={styles.logoutPill} onPress={logout} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.logoutPill}
+          onPress={logout}
+          activeOpacity={0.8}
+        >
           <Text style={styles.logoutText}>Đăng xuất</Text>
         </TouchableOpacity>
       </View>
@@ -121,7 +138,7 @@ export default function AvailableOrdersScreen() {
       ) : (
         <FlatList
           data={orders}
-          keyExtractor={(item) => String(item.id || item.orderId)}
+          keyExtractor={(item) => String(item.id)}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           refreshControl={
@@ -183,7 +200,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.18)",
   },
-  logoutText: { color: "rgba(255,255,255,0.85)", fontSize: 12, fontWeight: "600" },
+  logoutText: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 12,
+    fontWeight: "600",
+  },
 
   // List
   list: { padding: 16, paddingBottom: 110 },

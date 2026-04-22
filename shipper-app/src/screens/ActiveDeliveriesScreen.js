@@ -27,9 +27,11 @@ function formatDateTime(d) {
 }
 
 const STATUS_META = {
-  SHIPPING:        { label: "Đang giao",        color: T.colors.accent,  dot: "🟠" },
-  WAITING_CONFIRM: { label: "Chờ xác nhận",    color: T.colors.info,    dot: "🔵" },
-  DELIVERED:       { label: "Đã giao",         color: T.colors.success, dot: "🟢" },
+  SHIPPING: { label: "Đang giao", color: T.colors.accent, dot: "🟠" },
+  WAITING_CONFIRM: { label: "Chờ xác nhận", color: T.colors.info, dot: "🔵" },
+  DELIVERED: { label: "Đã giao", color: T.colors.success, dot: "🟢" },
+  CANCELLED: { label: "Đã hủy", color: T.colors.textMuted, dot: "⚪" },
+  FAILED: { label: "Giao thất bại", color: T.colors.textMuted, dot: "🔴" },
 };
 
 export default function ActiveDeliveriesScreen() {
@@ -55,7 +57,11 @@ export default function ActiveDeliveriesScreen() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   const openConfirm = (item) => {
     setSelectedDelivery(item);
@@ -64,7 +70,7 @@ export default function ActiveDeliveriesScreen() {
   };
 
   const handleMarkSuccess = async () => {
-    const deliveryId = selectedDelivery?.deliveryId || selectedDelivery?.id;
+    const deliveryId = selectedDelivery?.id;
     if (!deliveryId) return;
     setSubmitting(true);
     try {
@@ -80,8 +86,12 @@ export default function ActiveDeliveriesScreen() {
   };
 
   const renderItem = ({ item }) => {
-    const meta = STATUS_META[item.deliveryStatus] ?? { label: item.deliveryStatus, color: T.colors.textMuted, dot: "⚪" };
-    const canMarkSuccess = item.deliveryStatus === "SHIPPING";
+    const meta = STATUS_META[item.status] ?? {
+      label: item.status,
+      color: T.colors.textMuted,
+      dot: "⚪",
+    };
+    const canMarkSuccess = item.status === "SHIPPING";
 
     return (
       <View style={styles.card}>
@@ -89,8 +99,16 @@ export default function ActiveDeliveriesScreen() {
         <View style={styles.cardBody}>
           {/* Header */}
           <View style={styles.cardHeader}>
-            <Text style={styles.orderId}>#{item.id || item.orderId}</Text>
-            <View style={[styles.badge, { backgroundColor: meta.color + "18", borderColor: meta.color + "40" }]}>
+            <Text style={styles.orderId}>#{item.orderId}</Text>
+            <View
+              style={[
+                styles.badge,
+                {
+                  backgroundColor: meta.color + "18",
+                  borderColor: meta.color + "40",
+                },
+              ]}
+            >
               <Text style={[styles.badgeText, { color: meta.color }]}>
                 {meta.dot} {meta.label}
               </Text>
@@ -98,10 +116,10 @@ export default function ActiveDeliveriesScreen() {
           </View>
 
           {/* Delivery ID */}
-          {item.deliveryId && (
+          {item.id && (
             <View style={styles.metaRow}>
               <Text style={styles.metaIcon}>{""}</Text>
-              <Text style={styles.metaText}>Vận đơn: {item.deliveryId}</Text>
+              <Text style={styles.metaText}>Vận đơn: {item.id}</Text>
             </View>
           )}
 
@@ -132,7 +150,7 @@ export default function ActiveDeliveriesScreen() {
                 onPress={() => openConfirm(item)}
                 activeOpacity={0.85}
               >
-                <Text style={styles.doneBtnText}>✅  Xác nhận đã giao hàng</Text>
+                <Text style={styles.doneBtnText}>✅ Xác nhận đã giao hàng</Text>
               </TouchableOpacity>
             </>
           )}
@@ -143,7 +161,10 @@ export default function ActiveDeliveriesScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={T.colors.primaryDark} />
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={T.colors.primaryDark}
+      />
 
       <View style={styles.header}>
         <Text style={styles.headerLabel}>CKITCHEN SHIPPER</Text>
@@ -158,7 +179,9 @@ export default function ActiveDeliveriesScreen() {
       ) : (
         <FlatList
           data={orders}
-          keyExtractor={(item) => String(item.id || item.orderId)}
+          keyExtractor={(item) =>
+            item.id || String(item.orderId)
+          }
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           refreshControl={
@@ -182,7 +205,10 @@ export default function ActiveDeliveriesScreen() {
       {/* Bottom-sheet confirm modal */}
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.overlay}>
-          <TouchableOpacity style={styles.overlayBg} onPress={() => setModalVisible(false)} />
+          <TouchableOpacity
+            style={styles.overlayBg}
+            onPress={() => !submitting && setModalVisible(false)}
+          />
           <View style={styles.sheet}>
             {/* Handle bar */}
             <View style={styles.handle} />
@@ -191,7 +217,7 @@ export default function ActiveDeliveriesScreen() {
             <Text style={styles.sheetSub}>
               Đơn hàng:{" "}
               <Text style={{ fontWeight: "700", color: T.colors.textDark }}>
-                #{selectedDelivery?.id || selectedDelivery?.orderId}
+                #{selectedDelivery?.orderId}
               </Text>
             </Text>
 
@@ -214,11 +240,16 @@ export default function ActiveDeliveriesScreen() {
               {submitting ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.confirmBtnText}>✅  Xác nhận giao thành công</Text>
+                <Text style={styles.confirmBtnText}>
+                  ✅ Xác nhận giao thành công
+                </Text>
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => setModalVisible(false)}
+            >
               <Text style={styles.cancelBtnText}>Huỷ</Text>
             </TouchableOpacity>
           </View>
@@ -303,7 +334,12 @@ const styles = StyleSheet.create({
   loadingText: { color: T.colors.textMuted, marginTop: 12, fontSize: 13 },
   emptyWrap: { alignItems: "center", paddingTop: 80, paddingHorizontal: 32 },
   emptyIcon: { fontSize: 52, marginBottom: 14 },
-  emptyTitle: { fontSize: 16, fontWeight: "700", color: T.colors.textDark, marginBottom: 6 },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: T.colors.textDark,
+    marginBottom: 6,
+  },
   emptySub: { fontSize: 13, color: T.colors.textMuted, textAlign: "center" },
 
   // Modal

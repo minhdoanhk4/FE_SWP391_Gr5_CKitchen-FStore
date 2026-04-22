@@ -65,6 +65,7 @@ const statusTabs = [
   { value: "PACKED_WAITING_SHIPPER", label: "Chờ shipper" },
   { value: "SHIPPING", label: "Đang giao" },
   { value: "DELIVERED", label: "Đã giao" },
+  { value: "CANCELLED", label: "Đã hủy" },
 ];
 
 function formatDate(d) {
@@ -228,7 +229,35 @@ export default function SupplyOrders() {
 
   // QR modal
   const [qrData, setQrData] = useState(null);
-  const [qrLoading, setQrLoading] = useState(false);
+  const [qrLoadingMap, setQrLoadingMap] = useState({});
+
+  // Badge counts for action-required tabs
+  const [pendingCount, setPendingCount] = useState(0);
+  const [packedCount, setPackedCount] = useState(0);
+
+  // Kitchen list for assign dropdown
+  const [kitchens, setKitchens] = useState([]);
+
+  const fetchPendingCount = useCallback(async () => {
+    try {
+      const d = await supplyService.getOrders({ status: "PENDING", size: 1 });
+      setPendingCount(
+        d.page?.totalElements ?? d.totalElements ?? d.content?.length ?? 0,
+      );
+    } catch {}
+  }, []);
+
+  const fetchPackedCount = useCallback(async () => {
+    try {
+      const d = await supplyService.getOrders({
+        status: "PACKED_WAITING_SHIPPER",
+        size: 1,
+      });
+      setPackedCount(
+        d.page?.totalElements ?? d.totalElements ?? d.content?.length ?? 0,
+      );
+    } catch {}
+  }, []);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -251,7 +280,9 @@ export default function SupplyOrders() {
 
   useEffect(() => {
     fetchOrders();
-  }, [fetchOrders]);
+    fetchPackedCount();
+    fetchPendingCount();
+  }, [fetchOrders, fetchPackedCount, fetchPendingCount]);
 
   // ── Assign kitchen ──────────────────────────────────────────────────────
   const openAssignKitchen = (e, order) => {
@@ -259,6 +290,10 @@ export default function SupplyOrders() {
     setAssignTarget(order);
     setKitchenId("");
     setAssignNotes("");
+    supplyService
+      .getKitchens()
+      .then((list) => setKitchens(list ?? []))
+      .catch(() => setKitchens([]));
   };
 
   const handleAssignKitchen = async () => {
@@ -290,14 +325,14 @@ export default function SupplyOrders() {
   const handleGetQr = async (e, order) => {
     e.stopPropagation();
     const orderId = order.orderId || order.id;
-    setQrLoading(true);
+    setQrLoadingMap((prev) => ({ ...prev, [orderId]: true }));
     try {
       const data = await supplyService.getPickupQr(orderId);
       setQrData(data);
     } catch (err) {
       toast.error(err.response?.data?.message || "Không thể tạo mã QR");
     } finally {
-      setQrLoading(false);
+      setQrLoadingMap((prev) => ({ ...prev, [orderId]: false }));
     }
   };
 
@@ -392,7 +427,7 @@ export default function SupplyOrders() {
               variant="primary"
               size="sm"
               icon={QrCode}
-              disabled={qrLoading}
+              disabled={!!qrLoadingMap[row.orderId || row.id]}
               onClick={(e) => handleGetQr(e, row)}
             >
               Sinh QR
@@ -446,6 +481,42 @@ export default function SupplyOrders() {
             }}
           >
             {tab.label}
+            {tab.value === "PENDING" && pendingCount > 0 && (
+              <span
+                style={{
+                  marginLeft: "6px",
+                  background: "var(--warning)",
+                  color: "#fff",
+                  borderRadius: "var(--radius-full)",
+                  padding: "1px 7px",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  display: "inline-block",
+                  minWidth: "18px",
+                  textAlign: "center",
+                }}
+              >
+                {pendingCount}
+              </span>
+            )}
+            {tab.value === "PACKED_WAITING_SHIPPER" && packedCount > 0 && (
+              <span
+                style={{
+                  marginLeft: "6px",
+                  background: "var(--accent)",
+                  color: "#fff",
+                  borderRadius: "var(--radius-full)",
+                  padding: "1px 7px",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  display: "inline-block",
+                  minWidth: "18px",
+                  textAlign: "center",
+                }}
+              >
+                {packedCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -526,13 +597,27 @@ export default function SupplyOrders() {
               <strong>{assignTarget.orderId || assignTarget.id}</strong> cho bếp
               trung tâm.
             </p>
-            <Input
-              label="Mã bếp (Kitchen ID)"
-              required
-              value={kitchenId}
-              onChange={(e) => setKitchenId(e.target.value)}
-              placeholder="VD: KIT001"
-            />
+            {kitchens.length > 0 ? (
+              <Select
+                label="Bếp trung tâm"
+                required
+                value={kitchenId}
+                onChange={(e) => setKitchenId(e.target.value)}
+                options={kitchens.map((k) => ({
+                  value: k.id,
+                  label: `${k.name} (${k.id})`,
+                }))}
+                placeholder="Chọn bếp..."
+              />
+            ) : (
+              <Input
+                label="Mã bếp (Kitchen ID)"
+                required
+                value={kitchenId}
+                onChange={(e) => setKitchenId(e.target.value)}
+                placeholder="VD: KIT001"
+              />
+            )}
             <Textarea
               label="Ghi chú (tùy chọn)"
               value={assignNotes}
@@ -613,7 +698,9 @@ export default function SupplyOrders() {
                 }}
               >
                 <span style={{ color: "var(--text-muted)" }}>Mã QR</span>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                >
                   <span
                     className="font-mono"
                     style={{ fontSize: "12px", color: "var(--text-secondary)" }}

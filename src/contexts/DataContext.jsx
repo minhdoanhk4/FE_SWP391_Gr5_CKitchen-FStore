@@ -49,8 +49,8 @@ const initialState = {
   salesRecords: [...mockSalesRecords],
   cart: [],
   systemConfig: {
-    systemName: "Kizuna Chain",
-    email: "support@kizuna.vn",
+    systemName: "CKitchen",
+    email: "support@ckitchen.vn",
     timezone: "UTC+7",
     currency: "VND",
     massUnit: "kg",

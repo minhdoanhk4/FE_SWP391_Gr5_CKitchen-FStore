@@ -52,6 +52,12 @@ const supplyService = {
       .get(`/supply-coordinator/orders/${orderId}/pickup-qr`)
       .then((r) => r.data.data),
 
+  // Kitchen list (admin catalog — falls back to empty if coordinator lacks permission)
+  getKitchens: ({ status = "ACTIVE", size = 100 } = {}) =>
+    api
+      .get("/admin/catalog/kitchens", { params: { status, size } })
+      .then((r) => r.data.data?.content ?? r.data.data ?? []),
+
   // ── Deliveries ────────────────────────────────────────────────────────────
   createDelivery: ({ orderId, status, assignedAt, notes }) =>
     api

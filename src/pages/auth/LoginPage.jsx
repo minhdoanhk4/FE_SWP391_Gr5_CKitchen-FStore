@@ -50,7 +50,7 @@ export default function LoginPage() {
       <div className="login-card">
         <div className="login-card__brand">
           <Logo size={40} className="login-card__logo-img" />
-          <h1 className="login-card__brand-name">Kizuna Chain</h1>
+          <h1 className="login-card__brand-name">CKitchen</h1>
         </div>
         <p className="login-card__subtitle">
           Hệ thống Quản lý Bếp Trung Tâm & Cửa hàng Franchise
@@ -119,7 +119,7 @@ export default function LoginPage() {
         </div>
 
         <div className="login-card__footer">
-          Bản quyền thuộc về Kizuna Chain &copy; 2024
+          Bản quyền thuộc về CKitchen &copy; 2024
         </div>
       </div>
     </div>

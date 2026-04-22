@@ -378,6 +378,7 @@ export const STATUS_LABELS = {
   in_progress: "Đang sản xuất",
   packed_waiting_shipper: "Sẵn sàng giao",
   shipping: "Đang giao hàng",
+  waiting_confirm: "Chờ xác nhận",
   delivered: "Đã giao",
   cancelled: "Đã hủy",
 };
@@ -388,6 +389,7 @@ export const STATUS_COLORS = {
   in_progress: "accent",
   packed_waiting_shipper: "primary",
   shipping: "info",
+  waiting_confirm: "warning",
   delivered: "success",
   cancelled: "danger",
 };

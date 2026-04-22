@@ -24,10 +24,34 @@ function ScanCorner({ position }) {
     borderWidth: 3,
   };
   const corners = {
-    topLeft:     { top: 0,    left: 0,    borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 6 },
-    topRight:    { top: 0,    right: 0,   borderLeftWidth: 0,  borderBottomWidth: 0, borderTopRightRadius: 6 },
-    bottomLeft:  { bottom: 0, left: 0,    borderRightWidth: 0, borderTopWidth: 0,    borderBottomLeftRadius: 6 },
-    bottomRight: { bottom: 0, right: 0,   borderLeftWidth: 0,  borderTopWidth: 0,    borderBottomRightRadius: 6 },
+    topLeft: {
+      top: 0,
+      left: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderTopLeftRadius: 6,
+    },
+    topRight: {
+      top: 0,
+      right: 0,
+      borderLeftWidth: 0,
+      borderBottomWidth: 0,
+      borderTopRightRadius: 6,
+    },
+    bottomLeft: {
+      bottom: 0,
+      left: 0,
+      borderRightWidth: 0,
+      borderTopWidth: 0,
+      borderBottomLeftRadius: 6,
+    },
+    bottomRight: {
+      bottom: 0,
+      right: 0,
+      borderLeftWidth: 0,
+      borderTopWidth: 0,
+      borderBottomRightRadius: 6,
+    },
   };
   return <View style={[base, corners[position]]} />;
 }
@@ -45,9 +69,17 @@ export default function ScannerScreen() {
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.04, duration: 900, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1,    duration: 900, useNativeDriver: true }),
-      ])
+        Animated.timing(pulse, {
+          toValue: 1.04,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ]),
     );
     loop.start();
     return () => loop.stop();
@@ -65,10 +97,28 @@ export default function ScannerScreen() {
           <Text style={styles.permSub}>
             Ứng dụng cần camera để quét mã QR trên thùng hàng
           </Text>
-          <TouchableOpacity style={styles.permBtn} onPress={requestPermission}>
-            <Text style={styles.permBtnText}>Cấp quyền camera</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.permCancel} onPress={() => navigation.goBack()}>
+          {permission.canAskAgain !== false ? (
+            <TouchableOpacity
+              style={styles.permBtn}
+              onPress={requestPermission}
+            >
+              <Text style={styles.permBtnText}>Cấp quyền camera</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text
+              style={[
+                styles.permSub,
+                { color: "rgba(255,100,100,0.80)", marginBottom: 28 },
+              ]}
+            >
+              Quyền camera đã bị từ chối vĩnh viễn. Vui lòng vào Cài đặt để cấp
+              quyền thủ công.
+            </Text>
+          )}
+          <TouchableOpacity
+            style={styles.permCancel}
+            onPress={() => navigation.goBack()}
+          >
             <Text style={styles.permCancelText}>Hủy</Text>
           </TouchableOpacity>
         </View>
@@ -84,8 +134,9 @@ export default function ScannerScreen() {
     try {
       const result = await shipperService.scanQr(data);
       setScanResult("success");
+      setScanning(false);
       setScanMessage(
-        `Đơn #${result?.orderId || ""} đã tiếp nhận\nMã vận đơn: ${result?.deliveryId || ""}`
+        `Đơn #${result?.orderId || ""} đã tiếp nhận\nMã vận đơn: ${result?.id || ""}`,
       );
       setTimeout(() => navigation.goBack(), 2200);
     } catch (err) {
@@ -125,7 +176,9 @@ export default function ScannerScreen() {
         </View>
 
         {/* Scan frame */}
-        <Animated.View style={[styles.frameOuter, { transform: [{ scale: pulse }] }]}>
+        <Animated.View
+          style={[styles.frameOuter, { transform: [{ scale: pulse }] }]}
+        >
           <View style={styles.frame}>
             <ScanCorner position="topLeft" />
             <ScanCorner position="topRight" />
@@ -138,10 +191,14 @@ export default function ScannerScreen() {
 
         {/* Status overlay (result toast) */}
         {scanResult && (
-          <View style={[
-            styles.resultBadge,
-            scanResult === "success" ? styles.resultSuccess : styles.resultError,
-          ]}>
+          <View
+            style={[
+              styles.resultBadge,
+              scanResult === "success"
+                ? styles.resultSuccess
+                : styles.resultError,
+            ]}
+          >
             <Text style={styles.resultText}>
               {scanResult === "success" ? "✅ " : "❌ "}
               {scanMessage}
@@ -158,8 +215,11 @@ export default function ScannerScreen() {
         )}
 
         {/* Cancel button */}
-        <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.cancelBtnText}>✕  Đóng</Text>
+        <TouchableOpacity
+          style={styles.cancelBtn}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.cancelBtnText}>✕ Đóng</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -229,7 +289,7 @@ const styles = StyleSheet.create({
     maxWidth: 300,
   },
   resultSuccess: { backgroundColor: "rgba(22,163,74,0.85)" },
-  resultError:   { backgroundColor: "rgba(220,38,38,0.85)" },
+  resultError: { backgroundColor: "rgba(220,38,38,0.85)" },
   resultText: {
     color: "#fff",
     fontWeight: "700",
@@ -240,7 +300,11 @@ const styles = StyleSheet.create({
 
   // Processing
   processingWrap: { alignItems: "center", marginTop: 28 },
-  processingText: { color: "rgba(255,255,255,0.70)", marginTop: 10, fontSize: 13 },
+  processingText: {
+    color: "rgba(255,255,255,0.70)",
+    marginTop: 10,
+    fontSize: 13,
+  },
 
   // Cancel
   cancelBtn: {
