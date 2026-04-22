@@ -77,22 +77,83 @@
 /* Spinner */
 .spinner {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: var(--space-8);
+  gap: var(--space-4);
+}
+
+.spinner__container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .spinner__circle {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--surface-border);
+  width: 64px;
+  height: 64px;
+  border: 3px solid transparent;
   border-top-color: var(--primary);
+  border-right-color: var(--primary-light);
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: spin 1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
 }
 
-.spinner--sm .spinner__circle { width: 20px; height: 20px; border-width: 2px; }
-.spinner--lg .spinner__circle { width: 48px; height: 48px; border-width: 4px; }
+.spinner__inner-circle {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  border: 2px solid transparent;
+  border-bottom-color: var(--accent);
+  border-left-color: var(--accent-light);
+  border-radius: 50%;
+  animation: spin 1.5s reverse linear infinite;
+}
+
+.spinner__logo {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.spinner--sm .spinner__circle { width: 32px; height: 32px; border-width: 2px; }
+.spinner--sm .spinner__inner-circle { width: 24px; height: 24px; border-width: 1.5px; }
+.spinner--sm .spinner__logo { width: 16px; height: 16px; }
+
+.spinner--lg .spinner__circle { width: 80px; height: 80px; border-width: 4px; }
+.spinner--lg .spinner__inner-circle { width: 60px; height: 60px; border-width: 3px; }
+.spinner--lg .spinner__logo { width: 40px; height: 40px; }
+
+.spinner__text {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* LoadingScreen */
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-toast);
+}
+
+.loading-screen__bg {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 50% 50%, var(--primary-bg) 0%, transparent 70%);
+  opacity: 0.5;
+}
 
 /* Skeleton */
 .skeleton {
@@ -105,3 +166,4 @@
 .skeleton--title { height: 24px; width: 60%; }
 .skeleton--circle { border-radius: 50%; }
 .skeleton--card { height: 120px; border-radius: var(--radius-lg); }
+

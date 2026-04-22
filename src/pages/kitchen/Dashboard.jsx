@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
-import { StatCard } from "../../components/ui";
+import { StatCard, LoadingScreen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import kitchenService from "../../services/kitchenService";
 import "../Dashboard.css";
@@ -45,15 +45,7 @@ export default function KitchenDashboard() {
     load();
   }, []);
 
-  if (loading) {
-    return (
-      <PageWrapper>
-        <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-muted)" }}>
-          Đang tải dữ liệu...
-        </div>
-      </PageWrapper>
-    );
-  }
+  if (loading) return <LoadingScreen />;
 
   return (
     <PageWrapper>

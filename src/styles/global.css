@@ -138,7 +138,47 @@ table {
   font-family: var(--font-mono);
 }
 
+.bg-gradient-primary {
+  background: var(--gradient-primary);
+  color: var(--text-inverse);
+}
+
+.bg-gradient-surface {
+  background: var(--gradient-surface);
+}
+
+.bg-gradient-soft {
+  background: var(--gradient-soft);
+}
+
+.text-gradient {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glass-morphism {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+}
+
+.card-gradient {
+  background: var(--gradient-card);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.card-gradient:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
 /* ---- Toast overrides ---- */
 .toast-container {
   font-family: var(--font-body) !important;
 }
+

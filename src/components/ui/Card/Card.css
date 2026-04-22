@@ -4,6 +4,7 @@
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
   padding: var(--space-6);
+  box-shadow: var(--shadow-sm);
   transition: all var(--transition-base);
 }
 
@@ -37,6 +38,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-4);
+  box-shadow: var(--shadow-sm);
   transition: all var(--transition-base);
   position: relative;
   overflow: hidden;
@@ -74,20 +76,24 @@
 }
 
 .stat-card__icon--primary {
-  background: var(--primary-bg);
+  background: linear-gradient(135deg, var(--primary-bg) 0%, var(--surface) 100%);
   color: var(--primary);
+  border: 1px solid var(--primary-lighter);
 }
 .stat-card__icon--accent {
-  background: var(--accent-bg);
+  background: linear-gradient(135deg, var(--accent-bg) 0%, var(--surface) 100%);
   color: var(--accent);
+  border: 1px solid var(--accent-light);
 }
 .stat-card__icon--warning {
-  background: var(--warning-bg);
+  background: linear-gradient(135deg, var(--warning-bg) 0%, var(--surface) 100%);
   color: var(--warning);
+  border: 1px solid var(--warning-bg);
 }
 .stat-card__icon--info {
-  background: var(--info-bg);
+  background: linear-gradient(135deg, var(--info-bg) 0%, var(--surface) 100%);
   color: var(--info);
+  border: 1px solid var(--info-bg);
 }
 
 .stat-card__content {

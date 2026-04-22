@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Users, Store, Activity, Box, ShoppingCart, TrendingUp, BarChart3 as ChartIcon } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
-import { StatCard, DataTable, Badge, Card, Button } from "../../components/ui";
+import { StatCard, DataTable, Badge, Card, Button, LoadingScreen } from "../../components/ui";
 import { useAuth, ROLE_INFO } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
 import adminService from "../../services/adminService";
@@ -61,7 +61,7 @@ export default function AdminDashboard() {
     },
   ];
 
-  if (loading) return <PageWrapper title="Đang tải hệ thống..." />;
+  if (loading) return <LoadingScreen />;
 
   const stats = overview || {};
 

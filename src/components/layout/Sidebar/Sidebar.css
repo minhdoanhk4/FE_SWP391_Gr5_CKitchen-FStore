@@ -23,14 +23,14 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-5) var(--space-5);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   min-height: 64px;
 }
 
 .sidebar__logo {
   width: 36px;
   height: 36px;
-  background: linear-gradient(135deg, var(--primary-lighter), var(--accent-warm));
+  background: var(--gradient-primary);
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
@@ -38,7 +38,7 @@
   flex-shrink: 0;
   font-weight: 800;
   font-size: 16px;
-  color: var(--primary-dark);
+  color: white;
   font-family: var(--font-heading);
 }
 
@@ -91,7 +91,7 @@
   font-weight: var(--font-bold);
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.4);
   white-space: nowrap;
   overflow: hidden;
 }
@@ -128,8 +128,12 @@
 }
 
 .sidebar__nav-item--active {
-  background: var(--sidebar-active-bg);
-  color: var(--sidebar-text-active);
+  background: var(--gradient-primary);
+  color: white !important;
+}
+
+.sidebar__nav-item--active .sidebar__nav-icon {
+  color: white;
 }
 
 .sidebar__nav-item--active::before {
@@ -182,7 +186,7 @@
 /* ---- Footer ---- */
 .sidebar__footer {
   padding: var(--space-3) var(--space-2);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .sidebar__user {

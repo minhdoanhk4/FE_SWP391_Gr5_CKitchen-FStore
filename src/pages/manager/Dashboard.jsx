@@ -24,7 +24,7 @@ import {
 } from "recharts";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
-import { StatCard, Badge } from "../../components/ui";
+import { StatCard, Badge, Spinner } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import managerService from "../../services/managerService";
 import "../Dashboard.css";
@@ -102,15 +102,16 @@ export default function ManagerDashboard() {
   return (
     <PageWrapper>
       <div
-        className="welcome-banner"
-        style={{ background: "linear-gradient(135deg, #1D3557, #457B9D)" }}
+        className="welcome-banner bg-gradient-primary"
       >
         <p className="welcome-banner__greeting">Báo cáo tổng quan,</p>
         <h2 className="welcome-banner__name">{user?.name}</h2>
         <p className="welcome-banner__summary">
-          {loading
-            ? "Đang tải dữ liệu..."
-            : `Tổng doanh thu: ${formatCurrency(totalRevenue)} · ${pendingOrders} đơn đang chờ · ${inProgressBatches} lô đang sản xuất`}
+          {loading ? (
+            <Spinner size="sm" className="inline-spinner" />
+          ) : (
+            `Tổng doanh thu: ${formatCurrency(totalRevenue)} · ${pendingOrders} đơn đang chờ · ${inProgressBatches} lô đang sản xuất`
+          )}
         </p>
       </div>
 
@@ -181,7 +182,7 @@ export default function ManagerDashboard() {
         }}
       >
         {/* Bar chart: production overview */}
-        <div className="dashboard-section">
+        <div className="dashboard-section card-gradient">
           <div className="dashboard-section__header">
             <h3 className="dashboard-section__title">Tổng quan sản xuất & đơn hàng</h3>
           </div>
@@ -206,7 +207,7 @@ export default function ManagerDashboard() {
         </div>
 
         {/* Radar chart: operational health */}
-        <div className="dashboard-section">
+        <div className="dashboard-section card-gradient">
           <div className="dashboard-section__header">
             <h3 className="dashboard-section__title">Sức khỏe vận hành</h3>
           </div>
@@ -246,7 +247,7 @@ export default function ManagerDashboard() {
           }}
         >
           {kitchenLowStock.length > 0 && (
-            <div className="dashboard-section">
+            <div className="dashboard-section card-gradient">
               <div className="dashboard-section__header">
                 <h3
                   className="dashboard-section__title"
@@ -280,7 +281,7 @@ export default function ManagerDashboard() {
           )}
 
           {storeLowStock.length > 0 && (
-            <div className="dashboard-section">
+            <div className="dashboard-section card-gradient">
               <div className="dashboard-section__header">
                 <h3
                   className="dashboard-section__title"

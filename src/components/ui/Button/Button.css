@@ -37,9 +37,9 @@
   border-color: var(--primary);
 }
 .btn--primary:hover:not(:disabled) {
-  background: var(--primary-light);
-  border-color: var(--primary-light);
-  box-shadow: var(--shadow-glow-primary);
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn--secondary {
@@ -58,8 +58,8 @@
   border-color: var(--accent);
 }
 .btn--accent:hover:not(:disabled) {
-  background: #d4573d;
-  box-shadow: var(--shadow-glow-accent);
+  opacity: 0.9;
+  box-shadow: var(--shadow-sm);
 }
 
 .btn--ghost {
@@ -77,8 +77,8 @@
   border-color: var(--warning);
 }
 .btn--warning:hover:not(:disabled) {
-  background: #b45309;
-  box-shadow: 0 0 20px rgba(217, 119, 6, 0.25);
+  opacity: 0.9;
+  box-shadow: var(--shadow-sm);
 }
 
 .btn--danger {
@@ -87,8 +87,8 @@
   border-color: var(--danger);
 }
 .btn--danger:hover:not(:disabled) {
-  background: #b91c1c;
-  box-shadow: 0 0 20px rgba(220, 38, 38, 0.25);
+  opacity: 0.9;
+  box-shadow: var(--shadow-sm);
 }
 
 .btn--outline-primary {

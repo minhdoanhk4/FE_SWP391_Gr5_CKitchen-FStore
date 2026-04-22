@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
-import { Card, Badge, Button } from "../../components/ui";
+import { Card, Badge, Button, LoadingScreen } from "../../components/ui";
 import { useData } from "../../contexts/DataContext";
 import storeService from "../../services/storeService";
 import "./OrderDetail.css";
@@ -95,7 +95,7 @@ export default function OrderDetail() {
     fetchAll();
   }, [id]);
 
-  if (loading) return <PageWrapper title="Đang tải..." />;
+  if (loading) return <LoadingScreen />;
 
   if (!order) {
     return (

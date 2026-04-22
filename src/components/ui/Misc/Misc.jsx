@@ -44,13 +44,28 @@ export function EmptyState({ icon: Icon, title, description, children }) {
   );
 }
 
-export function Spinner({ size, className = '' }) {
+export function Spinner({ size, text, className = '' }) {
   return (
     <div className={`spinner ${size ? `spinner--${size}` : ''} ${className}`}>
-      <div className="spinner__circle" />
+      <div className="spinner__container">
+        <div className="spinner__circle" />
+        <div className="spinner__inner-circle" />
+        <img src="/images/products/logo.png" alt="CKitchen" className="spinner__logo" />
+      </div>
+      {text && <p className="spinner__text">{text}</p>}
     </div>
   );
 }
+
+export function LoadingScreen({ text = 'Đang tải hệ thống...' }) {
+  return (
+    <div className="loading-screen">
+      <div className="loading-screen__bg" />
+      <Spinner size="lg" text={text} />
+    </div>
+  );
+}
+
 
 export function Skeleton({ variant = 'text', width, height, className = '' }) {
   return (
