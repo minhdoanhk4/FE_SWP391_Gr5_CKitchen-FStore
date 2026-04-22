@@ -34,6 +34,11 @@ api.interceptors.response.use(
     const original = error.config;
 
     if (error.response?.status === 401 && !original._retry) {
+      // Don't attempt token refresh for logout endpoints — just clear and move on
+      if (original.url?.includes("/logout")) {
+        clearAuth();
+        return Promise.reject(error);
+      }
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });

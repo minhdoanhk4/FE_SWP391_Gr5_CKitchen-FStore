@@ -162,11 +162,12 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    // Fire server logout first so the request interceptor still has the token
+    // Best-effort server logout — ignore any errors (token may already be expired)
     authService.logout().catch(() => {});
-    // Then clear local state
+    // Clear local state immediately regardless of server response
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
+    localStorage.removeItem("ckitchen_auth");
     dispatch({ type: "LOGOUT" });
   };
 

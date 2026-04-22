@@ -103,8 +103,47 @@ const managerService = {
   kitchenInventory: {
     getAll: ({ ingredientName, page = 0, size = 200 } = {}) =>
       api
-        .get("/central-kitchen/inventory", { params: { ingredientName, page, size } })
+        .get("/central-kitchen/inventory", {
+          params: { ingredientName, page, size },
+        })
         .then((r) => r.data.data),
+  },
+
+  // ── Manager Inventory (full CRUD) ─────────────────────────────────────────
+  inventory: {
+    // GET /manager/inventory/kitchen — grouped by kitchen
+    getKitchen: ({ kitchenId, lowStock, page = 0, size = 20 } = {}) =>
+      api
+        .get("/manager/inventory/kitchen", {
+          params: { kitchenId, lowStock, page, size },
+        })
+        .then((r) => r.data.data),
+
+    // POST /manager/inventory/kitchen — create item
+    create: (payload) =>
+      api.post("/manager/inventory/kitchen", payload).then((r) => r.data.data),
+
+    // PUT /manager/inventory/kitchen/{id} — update item
+    update: (id, payload) =>
+      api
+        .put(`/manager/inventory/kitchen/${id}`, payload)
+        .then((r) => r.data.data),
+
+    // DELETE /manager/inventory/kitchen/{id} — delete item
+    delete: (id) =>
+      api.delete(`/manager/inventory/kitchen/${id}`).then((r) => r.data),
+
+    // GET /manager/inventory/kitchens — kitchen dropdown
+    getKitchens: () =>
+      api.get("/manager/inventory/kitchens").then((r) => r.data.data ?? []),
+
+    // GET /manager/inventory/ingredients — ingredient + standard unit dropdown
+    getIngredients: () =>
+      api.get("/manager/inventory/ingredients").then((r) => r.data.data ?? []),
+
+    // GET /manager/inventory/suppliers — supplier distinct list
+    getSuppliers: () =>
+      api.get("/manager/inventory/suppliers").then((r) => r.data.data ?? []),
   },
 
   // ── Recipes ───────────────────────────────────────────────────────────────

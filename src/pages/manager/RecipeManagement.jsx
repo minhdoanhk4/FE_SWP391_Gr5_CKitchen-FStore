@@ -1,8 +1,17 @@
-import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Sparkles, RefreshCw, CheckSquare, Square, PackagePlus } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Sparkles,
+  RefreshCw,
+  CheckSquare,
+  Square,
+  PackagePlus,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
-import { DataTable, Badge, Button, Modal } from "../../components/ui";
+import { Badge, Button, Modal } from "../../components/ui";
 import { Input, Select } from "../../components/ui";
 import managerService from "../../services/managerService";
 import { suggestIngredients } from "../../services/aiService";
@@ -11,11 +20,19 @@ const UNIT_OPTIONS = [
   { value: "kg", label: "kg" },
   { value: "g", label: "g" },
   { value: "lít", label: "lít" },
+  { value: "l", label: "l" },
   { value: "ml", label: "ml" },
   { value: "cái", label: "cái" },
+  { value: "quả", label: "quả" },
+  { value: "gói", label: "gói" },
 ];
 
-const EMPTY_FORM = { productId: "", ingredientId: "", quantity: "", unit: "kg" };
+const EMPTY_FORM = {
+  productId: "",
+  ingredientId: "",
+  quantity: "",
+  unit: "kg",
+};
 
 export default function RecipeManagement() {
   const [recipes, setRecipes] = useState([]);
@@ -31,36 +48,54 @@ export default function RecipeManagement() {
   const [errors, setErrors] = useState({});
 
   // ── AI suggestion state ────────────────────────────────────────────────────
+  const [ingredients, setIngredients] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiSuggestions, setAiSuggestions] = useState([]); // [{ name, quantity, unit, ingredientId }]
+  const [aiSuggestions, setAiSuggestions] = useState([]);
   const [selectedIdxs, setSelectedIdxs] = useState(new Set());
+  const [suggestionQtys, setSuggestionQtys] = useState({});
+  const [suggestionUnits, setSuggestionUnits] = useState({});
 
   useEffect(() => {
     let mounted = true;
     Promise.all([
       managerService.recipes.getAll({ size: 200 }),
       managerService.products.getAll({ size: 200 }),
+      managerService.inventory.getIngredients(),
     ])
-      .then(([rec, prod]) => {
+      .then(([rec, prod, ings]) => {
         if (!mounted) return;
         const rawRecipes = Array.isArray(rec) ? rec : (rec?.content ?? []);
-        const prodList   = Array.isArray(prod) ? prod : (prod?.content ?? []);
+        const prodList = Array.isArray(prod) ? prod : (prod?.content ?? []);
+        const ingList = Array.isArray(ings) ? ings : (ings?.content ?? []);
         // Enrich recipes with productName from the products list (in case API omits it)
-        const productMap = Object.fromEntries(prodList.map((p) => [String(p.id), p.name]));
+        const productMap = Object.fromEntries(
+          prodList.map((p) => [String(p.id), p.name]),
+        );
         const enriched = rawRecipes.map((r) => ({
           ...r,
-          productName:    r.productName    || productMap[String(r.productId)]    || r.productId,
+          productName:
+            r.productName || productMap[String(r.productId)] || r.productId,
           ingredientName: r.ingredientName || r.ingredientId,
         }));
         setRecipes(enriched);
         setProducts(prodList);
+        setIngredients(ingList);
       })
-      .catch(() => { if (mounted) toast.error("Không thể tải dữ liệu công thức"); })
-      .finally(() => { if (mounted) setLoading(false); });
-    return () => { mounted = false; };
+      .catch(() => {
+        if (mounted) toast.error("Không thể tải dữ liệu công thức");
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  const productOptions = products.map((p) => ({ value: p.id, label: `${p.name} (${p.id})` }));
+  const productOptions = products.map((p) => ({
+    value: p.id,
+    label: `${p.name} (${p.id})`,
+  }));
 
   const handleOpenNew = () => {
     setEditItem(null);
@@ -88,7 +123,8 @@ export default function RecipeManagement() {
   const validate = () => {
     const errs = {};
     if (!editItem && !form.productId) errs.productId = "Vui lòng chọn sản phẩm";
-    if (!editItem && !form.ingredientId) errs.ingredientId = "Vui lòng chọn nguyên liệu";
+    if (!editItem && !form.ingredientId)
+      errs.ingredientId = "Vui lòng chọn nguyên liệu";
     if (!form.quantity || parseFloat(form.quantity) <= 0)
       errs.quantity = "Định mức phải lớn hơn 0";
     if (!form.unit) errs.unit = "Vui lòng chọn đơn vị";
@@ -105,13 +141,22 @@ export default function RecipeManagement() {
           quantity: parseFloat(form.quantity),
           unit: form.unit,
         };
-        const updated = await managerService.recipes.update(editItem.id, payload);
+        const updated = await managerService.recipes.update(
+          editItem.id,
+          payload,
+        );
         setRecipes((prev) =>
           prev.map((r) =>
             r.id === editItem.id
-              ? { ...r, ...payload, ...(updated ?? {}), productName: r.productName, ingredientName: r.ingredientName }
-              : r
-          )
+              ? {
+                  ...r,
+                  ...payload,
+                  ...(updated ?? {}),
+                  productName: r.productName,
+                  ingredientName: r.ingredientName,
+                }
+              : r,
+          ),
         );
         toast.success("Đã cập nhật công thức");
       } else {
@@ -122,10 +167,12 @@ export default function RecipeManagement() {
           unit: form.unit,
         };
         const created = await managerService.recipes.create(payload);
-        const productName = products.find((p) => String(p.id) === String(payload.productId))?.name;
+        const productName = products.find(
+          (p) => String(p.id) === String(payload.productId),
+        )?.name;
         const enrichedCreated = {
           ...created,
-          productName:    created?.productName    || productName || payload.productId,
+          productName: created?.productName || productName || payload.productId,
           ingredientName: created?.ingredientName || payload.ingredientId,
         };
         setRecipes((prev) => [...prev, enrichedCreated]);
@@ -157,7 +204,9 @@ export default function RecipeManagement() {
 
   // ── AI Suggestion handlers ─────────────────────────────────────────────────
   const handleAiSuggest = async () => {
-    const selectedProduct = products.find((p) => String(p.id) === String(form.productId));
+    const selectedProduct = products.find(
+      (p) => String(p.id) === String(form.productId),
+    );
     if (!selectedProduct) {
       toast.error("Vui lòng chọn sản phẩm trước khi dùng AI gợi ý");
       return;
@@ -166,10 +215,14 @@ export default function RecipeManagement() {
     setAiSuggestions([]);
     setSelectedIdxs(new Set());
     try {
-      const results = await suggestIngredients(selectedProduct.name, []);
+      const results = await suggestIngredients(selectedProduct.name, ingredients);
       setAiSuggestions(results);
-      // Auto-select all suggestions by default
       setSelectedIdxs(new Set(results.map((_, i) => i)));
+      setSuggestionQtys(Object.fromEntries(results.map((s, i) => [i, s.quantity])));
+      setSuggestionUnits(Object.fromEntries(results.map((s, i) => {
+        const cat = ingredients.find((ing) => ing.id === s.ingredientId);
+        return [i, cat?.unit || s.unit || "kg"];
+      })));
     } catch (err) {
       toast.error(err.message || "AI gợi ý thất bại, vui lòng thử lại");
     } finally {
@@ -207,14 +260,16 @@ export default function RecipeManagement() {
 
     setSaving(true);
     const results = await Promise.allSettled(
-      selected.map((s) =>
-        managerService.recipes.create({
+      selected.map((s, i) => {
+        const origIdx = aiSuggestions.indexOf(s);
+        const catalogUnit = ingredients.find((ing) => ing.id === s.ingredientId)?.unit || s.unit;
+        return managerService.recipes.create({
           productId: form.productId,
           ingredientId: s.ingredientId,
-          quantity: s.quantity,
-          unit: s.unit,
-        })
-      )
+          quantity: parseFloat(suggestionQtys[origIdx] ?? s.quantity) || s.quantity,
+          unit: suggestionUnits[origIdx] || catalogUnit,
+        });
+      }),
     );
 
     const added = results
@@ -222,12 +277,17 @@ export default function RecipeManagement() {
       .map((r, i) => {
         const raw = r.value;
         const src = selected[i];
-        const productName = products.find((p) => String(p.id) === String(form.productId))?.name;
-        return raw ? {
-          ...raw,
-          productName:    raw.productName    || productName || form.productId,
-          ingredientName: raw.ingredientName || src?.name   || src?.ingredientId,
-        } : null;
+        const productName = products.find(
+          (p) => String(p.id) === String(form.productId),
+        )?.name;
+        return raw
+          ? {
+              ...raw,
+              productName: raw.productName || productName || form.productId,
+              ingredientName:
+                raw.ingredientName || src?.name || src?.ingredientId,
+            }
+          : null;
       })
       .filter(Boolean);
     const failed = results.filter((r) => r.status === "rejected").length;
@@ -244,64 +304,24 @@ export default function RecipeManagement() {
     setShowModal(false);
     setAiSuggestions([]);
     setSelectedIdxs(new Set());
+    setSuggestionQtys({});
+    setSuggestionUnits({});
   };
 
-  const columns = [
-    {
-      header: "Sản phẩm",
-      accessor: "productName",
-      sortable: true,
-      render: (r) => <span style={{ fontWeight: 500 }}>{r.productName || r.productId}</span>,
-    },
-    {
-      header: "Mã SP",
-      accessor: "productId",
-      width: "100px",
-      render: (r) => (
-        <span className="font-mono" style={{ fontSize: "12px" }}>{r.productId}</span>
-      ),
-    },
-    {
-      header: "Nguyên liệu",
-      accessor: "ingredientName",
-      sortable: true,
-      render: (r) => r.ingredientName || r.ingredientId,
-    },
-    {
-      header: "Định mức",
-      accessor: "quantity",
-      width: "100px",
-      render: (r) => (
-        <span className="font-mono">
-          {r.quantity} <span style={{ color: "var(--text-muted)" }}>{r.unit}</span>
-        </span>
-      ),
-    },
-    {
-      header: "",
-      width: "80px",
-      render: (row) => (
-        <div style={{ display: "flex", gap: "4px" }}>
-          <Button
-            variant="ghost"
-            size="sm"
-            iconOnly
-            icon={Edit}
-            title="Sửa"
-            onClick={(e) => { e.stopPropagation(); handleEdit(row); }}
-          />
-          <Button
-            variant="ghost"
-            size="sm"
-            iconOnly
-            icon={Trash2}
-            title="Xóa"
-            onClick={(e) => { e.stopPropagation(); setConfirmDelete(row); }}
-          />
-        </div>
-      ),
-    },
-  ];
+  const grouped = useMemo(() => {
+    const map = {};
+    recipes.forEach((r) => {
+      const key = r.productId;
+      if (!map[key])
+        map[key] = {
+          productId: r.productId,
+          productName: r.productName,
+          items: [],
+        };
+      map[key].items.push(r);
+    });
+    return Object.values(map);
+  }, [recipes]);
 
   return (
     <PageWrapper
@@ -313,13 +333,170 @@ export default function RecipeManagement() {
         </Button>
       }
     >
-      <DataTable
-        columns={columns}
-        data={recipes}
-        loading={loading}
-        searchPlaceholder="Tìm theo sản phẩm hoặc nguyên liệu..."
-        toolbar={<Badge variant="primary">{recipes.length} dòng công thức</Badge>}
-      />
+      {loading ? (
+        <p
+          style={{
+            color: "var(--text-muted)",
+            padding: "32px",
+            textAlign: "center",
+          }}
+        >
+          Đang tải...
+        </p>
+      ) : grouped.length === 0 ? (
+        <p
+          style={{
+            color: "var(--text-muted)",
+            padding: "32px",
+            textAlign: "center",
+          }}
+        >
+          Chưa có công thức nào.
+        </p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          {grouped.map((group) => (
+            <div
+              key={group.productId}
+              style={{
+                border: "1px solid var(--surface-border)",
+                borderRadius: "var(--radius-lg)",
+                overflow: "hidden",
+              }}
+            >
+              {/* Product header */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "12px 16px",
+                  background: "var(--surface-hover)",
+                  borderBottom: "1px solid var(--surface-border)",
+                }}
+              >
+                <span style={{ fontWeight: 700, fontSize: "15px" }}>
+                  {group.productName}
+                </span>
+                <span
+                  className="font-mono"
+                  style={{ fontSize: "12px", color: "var(--text-muted)" }}
+                >
+                  {group.productId}
+                </span>
+                <Badge variant="neutral" style={{ marginLeft: "auto" }}>
+                  {group.items.length} nguyên liệu
+                </Badge>
+              </div>
+
+              {/* Ingredients table */}
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontSize: "14px",
+                }}
+              >
+                <thead>
+                  <tr style={{ background: "var(--surface)" }}>
+                    <th
+                      style={{
+                        padding: "8px 16px",
+                        textAlign: "left",
+                        fontWeight: 600,
+                        color: "var(--text-muted)",
+                        fontSize: "12px",
+                      }}
+                    >
+                      Nguyên liệu
+                    </th>
+                    <th
+                      style={{
+                        padding: "8px 16px",
+                        textAlign: "left",
+                        fontWeight: 600,
+                        color: "var(--text-muted)",
+                        fontSize: "12px",
+                      }}
+                    >
+                      Mã NL
+                    </th>
+                    <th
+                      style={{
+                        padding: "8px 16px",
+                        textAlign: "left",
+                        fontWeight: 600,
+                        color: "var(--text-muted)",
+                        fontSize: "12px",
+                      }}
+                    >
+                      Định mức
+                    </th>
+                    <th style={{ padding: "8px 16px", width: "80px" }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.items.map((row) => (
+                    <tr
+                      key={row.id}
+                      style={{ borderTop: "1px solid var(--surface-border)" }}
+                    >
+                      <td style={{ padding: "10px 16px", fontWeight: 500 }}>
+                        {row.ingredientName || row.ingredientId}
+                      </td>
+                      <td style={{ padding: "10px 16px" }}>
+                        <span
+                          className="font-mono"
+                          style={{
+                            fontSize: "12px",
+                            color: "var(--text-muted)",
+                          }}
+                        >
+                          {row.ingredientId}
+                        </span>
+                      </td>
+                      <td style={{ padding: "10px 16px" }}>
+                        <span className="font-mono">
+                          {row.quantity}{" "}
+                          <span style={{ color: "var(--text-muted)" }}>
+                            {row.unit}
+                          </span>
+                        </span>
+                      </td>
+                      <td style={{ padding: "10px 16px" }}>
+                        <div style={{ display: "flex", gap: "4px" }}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            iconOnly
+                            icon={Edit}
+                            title="Sửa"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(row);
+                            }}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            iconOnly
+                            icon={Trash2}
+                            title="Xóa"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDelete(row);
+                            }}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Add/Edit Modal */}
       <Modal
@@ -330,12 +507,22 @@ export default function RecipeManagement() {
         footer={
           editItem ? (
             <>
-              <Button variant="secondary" onClick={() => setShowModal(false)}>Hủy</Button>
-              <Button onClick={handleSave} disabled={saving}>Lưu thay đổi</Button>
+              <Button variant="secondary" onClick={() => setShowModal(false)}>
+                Hủy
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
+                Lưu thay đổi
+              </Button>
             </>
           ) : aiSuggestions.length > 0 ? (
             <>
-              <Button variant="secondary" onClick={() => { setAiSuggestions([]); setSelectedIdxs(new Set()); }}>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setAiSuggestions([]);
+                  setSelectedIdxs(new Set());
+                }}
+              >
                 ← Nhập thủ công
               </Button>
               <Button
@@ -343,13 +530,19 @@ export default function RecipeManagement() {
                 disabled={saving || selectedIdxs.size === 0}
                 icon={PackagePlus}
               >
-                {saving ? "Đang thêm…" : `Thêm ${selectedIdxs.size} nguyên liệu đã chọn`}
+                {saving
+                  ? "Đang thêm…"
+                  : `Thêm ${selectedIdxs.size} nguyên liệu đã chọn`}
               </Button>
             </>
           ) : (
             <>
-              <Button variant="secondary" onClick={() => setShowModal(false)}>Hủy</Button>
-              <Button onClick={handleSave} disabled={saving}>Thêm</Button>
+              <Button variant="secondary" onClick={() => setShowModal(false)}>
+                Hủy
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
+                Thêm
+              </Button>
             </>
           )
         }
@@ -379,7 +572,11 @@ export default function RecipeManagement() {
                 onClick={handleAiSuggest}
                 disabled={aiLoading || !form.productId}
                 title="Dùng AI để gợi ý nguyên liệu dựa trên kho hiện có"
-                style={{ whiteSpace: "nowrap", flexShrink: 0, marginBottom: errors.productId ? "22px" : "0" }}
+                style={{
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  marginBottom: errors.productId ? "22px" : "0",
+                }}
               >
                 {aiLoading ? "Đang phân tích…" : "✨ AI Gợi ý"}
               </Button>
@@ -389,16 +586,28 @@ export default function RecipeManagement() {
           {/* Manual entry — shown when no AI tray active */}
           {!aiSuggestions.length && (
             <>
-              <Input
+              <Select
                 label="Mã nguyên liệu"
                 required
                 value={form.ingredientId}
-                onChange={(e) => setForm((f) => ({ ...f, ingredientId: e.target.value }))}
-                placeholder="Nhập mã nguyên liệu (VD: ING001)"
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, ingredientId: e.target.value }))
+                }
+                options={ingredients.map((i) => ({
+                  value: i.id,
+                  label: `${i.id} — ${i.ingredientName || i.name}`,
+                }))}
+                placeholder="Chọn nguyên liệu…"
                 error={errors.ingredientId}
                 disabled={!!editItem}
               />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "12px",
+                }}
+              >
                 <Input
                   label="Định mức"
                   required
@@ -406,7 +615,9 @@ export default function RecipeManagement() {
                   step="0.001"
                   min="0"
                   value={form.quantity}
-                  onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, quantity: e.target.value }))
+                  }
                   placeholder="0.20"
                   error={errors.quantity}
                 />
@@ -415,7 +626,9 @@ export default function RecipeManagement() {
                   required
                   options={UNIT_OPTIONS}
                   value={form.unit}
-                  onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, unit: e.target.value }))
+                  }
                   error={errors.unit}
                 />
               </div>
@@ -424,19 +637,42 @@ export default function RecipeManagement() {
 
           {/* AI Loading skeleton */}
           {aiLoading && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "4px" }}>
-              <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0, fontStyle: "italic" }}>
-                ✨ Đang phân tích nguyên liệu cho "{products.find(p => String(p.id) === String(form.productId))?.name}"…
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                marginTop: "4px",
+              }}
+            >
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: "var(--text-muted)",
+                  margin: 0,
+                  fontStyle: "italic",
+                }}
+              >
+                ✨ Đang phân tích nguyên liệu cho "
+                {
+                  products.find((p) => String(p.id) === String(form.productId))
+                    ?.name
+                }
+                "…
               </p>
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} style={{
-                  height: "54px",
-                  borderRadius: "10px",
-                  background: "linear-gradient(90deg, var(--surface-hover) 25%, var(--surface) 50%, var(--surface-hover) 75%)",
-                  backgroundSize: "200% 100%",
-                  animation: "shimmer 1.4s infinite",
-                  opacity: 1 - i * 0.12,
-                }} />
+                <div
+                  key={i}
+                  style={{
+                    height: "54px",
+                    borderRadius: "10px",
+                    background:
+                      "linear-gradient(90deg, var(--surface-hover) 25%, var(--surface) 50%, var(--surface-hover) 75%)",
+                    backgroundSize: "200% 100%",
+                    animation: "shimmer 1.4s infinite",
+                    opacity: 1 - i * 0.12,
+                  }}
+                />
               ))}
               <style>{`@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
             </div>
@@ -446,18 +682,28 @@ export default function RecipeManagement() {
           {!aiLoading && aiSuggestions.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
               {/* Tray header */}
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "10px 0 12px",
-                borderTop: "1px solid var(--surface-border)",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span style={{ fontSize: "13px", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.5px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 0 12px",
+                  borderTop: "1px solid var(--surface-border)",
+                }}
+              >
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  <span
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: "700",
+                      color: "var(--text-muted)",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
                     ✨ GỢI Ý AI ({aiSuggestions.length})
                   </span>
-
                 </div>
                 <button
                   onClick={handleSelectAll}
@@ -475,14 +721,34 @@ export default function RecipeManagement() {
                     borderRadius: "6px",
                   }}
                 >
-                  {selectedIdxs.size === aiSuggestions.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                  {selectedIdxs.size === aiSuggestions.length
+                    ? "Bỏ chọn tất cả"
+                    : "Chọn tất cả"}
                 </button>
               </div>
 
               {/* Suggestion cards */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "340px", overflowY: "auto", paddingRight: "2px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                  maxHeight: "340px",
+                  overflowY: "auto",
+                  paddingRight: "2px",
+                }}
+              >
                 {aiSuggestions.map((s, idx) => {
                   const isSelected = selectedIdxs.has(idx);
+                  const catalogMatch = ingredients.find(
+                    (i) => i.id === s.ingredientId,
+                  );
+                  const displayName =
+                    s.name ||
+                    catalogMatch?.ingredientName ||
+                    catalogMatch?.name ||
+                    s.ingredientId;
+                  const displayUnit = catalogMatch?.unit || s.unit;
                   return (
                     <div
                       key={idx}
@@ -490,48 +756,95 @@ export default function RecipeManagement() {
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: "12px",
-                        padding: "11px 14px",
-                        borderRadius: "10px",
+                        gap: "10px",
+                        padding: "8px 12px",
+                        borderRadius: "8px",
                         border: isSelected
                           ? "2px solid var(--primary)"
                           : "1.5px solid var(--surface-border)",
-                        backgroundColor: isSelected ? "var(--primary-bg)" : "#fff",
+                        backgroundColor: isSelected
+                          ? "var(--primary-bg)"
+                          : "#fff",
                         cursor: "pointer",
                         transition: "all 0.15s ease",
                         userSelect: "none",
                       }}
                     >
-                      {/* Checkbox icon */}
-                      <span style={{ color: isSelected ? "var(--primary)" : "var(--surface-border)", flexShrink: 0, fontSize: "16px" }}>
+                      <span
+                        style={{
+                          color: isSelected
+                            ? "var(--primary)"
+                            : "var(--surface-border)",
+                          flexShrink: 0,
+                          fontSize: "16px",
+                        }}
+                      >
                         {isSelected ? "☑" : "☐"}
                       </span>
 
-                      {/* Name + qty */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{
-                          fontWeight: "600",
-                          color: "var(--text-dark)",
-                          fontSize: "14px",
-                          display: "block",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}>
-                          {s.name}
-                        </span>
-                        <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-mono, monospace)" }}>
-                          {s.quantity} {s.unit}
-                        </span>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
+                          <span
+                            style={{
+                              fontWeight: "600",
+                              color: "var(--text-dark)",
+                              fontSize: "13px",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {displayName}
+                          </span>
+                          <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                            {s.ingredientId}
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.001"
+                            value={suggestionQtys[idx] ?? s.quantity}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) =>
+                              setSuggestionQtys((prev) => ({ ...prev, [idx]: e.target.value }))
+                            }
+                            style={{
+                              width: "70px",
+                              fontSize: "12px",
+                              padding: "2px 6px",
+                              borderRadius: "4px",
+                              border: "1px solid var(--surface-border)",
+                              background: "var(--surface)",
+                              color: "var(--text-dark)",
+                              fontFamily: "var(--font-mono, monospace)",
+                            }}
+                          />
+                          <select
+                            value={suggestionUnits[idx] ?? displayUnit}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) =>
+                              setSuggestionUnits((prev) => ({ ...prev, [idx]: e.target.value }))
+                            }
+                            style={{
+                              fontSize: "12px",
+                              padding: "2px 4px",
+                              borderRadius: "4px",
+                              border: "1px solid var(--surface-border)",
+                              background: "var(--surface)",
+                              color: "var(--text-dark)",
+                            }}
+                          >
+                            {UNIT_OPTIONS.map((u) => (
+                              <option key={u.value} value={u.value}>{u.label}</option>
+                            ))}
+                          </select>                        </div>
                       </div>
-
-
                     </div>
                   );
                 })}
               </div>
-
-
             </div>
           )}
         </div>
@@ -544,8 +857,14 @@ export default function RecipeManagement() {
         title="Xác nhận xóa"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setConfirmDelete(null)}>Hủy</Button>
-            <Button variant="danger" onClick={handleDeleteConfirm} disabled={saving}>
+            <Button variant="secondary" onClick={() => setConfirmDelete(null)}>
+              Hủy
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleDeleteConfirm}
+              disabled={saving}
+            >
               Xóa
             </Button>
           </>
@@ -553,8 +872,14 @@ export default function RecipeManagement() {
       >
         <p>
           Xóa công thức{" "}
-          <strong>{confirmDelete?.ingredientName || confirmDelete?.ingredientId}</strong>{" "}
-          cho sản phẩm <strong>{confirmDelete?.productName || confirmDelete?.productId}</strong>?
+          <strong>
+            {confirmDelete?.ingredientName || confirmDelete?.ingredientId}
+          </strong>{" "}
+          cho sản phẩm{" "}
+          <strong>
+            {confirmDelete?.productName || confirmDelete?.productId}
+          </strong>
+          ?
         </p>
       </Modal>
     </PageWrapper>

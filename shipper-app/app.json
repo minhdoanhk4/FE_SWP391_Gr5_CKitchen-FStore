@@ -12,7 +12,11 @@
       }
     },
     "android": {
-      "permissions": ["android.permission.CAMERA"]
+      "package": "com.ckitchen.shipper",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       [
@@ -21,6 +25,11 @@
           "cameraPermission": "Cần quyền camera để quét mã QR đơn hàng"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "14d6446f-bac8-470d-9af0-18e5ce20f541"
+      }
+    }
   }
 }

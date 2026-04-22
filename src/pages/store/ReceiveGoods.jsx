@@ -187,7 +187,7 @@ export default function ReceiveGoods() {
                   ))}
                 </div>
 
-                {(status === "shipping" || status === "waiting_confirm") &&
+                {status === "waiting_confirm" &&
                   !confirmedOrders.includes(orderId) && (
                     <div
                       style={{

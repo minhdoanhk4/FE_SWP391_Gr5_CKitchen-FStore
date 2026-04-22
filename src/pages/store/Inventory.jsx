@@ -7,7 +7,7 @@ import { useData } from "../../contexts/DataContext";
 import storeService from "../../services/storeService";
 
 export default function StoreInventory() {
-  const { formatDate, isExpiringSoon, isExpired } = useData();
+  const { formatDate, formatCurrency, isExpiringSoon, isExpired } = useData();
 
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -55,11 +55,18 @@ export default function StoreInventory() {
       ),
     },
     {
+      header: "Giá bán",
+      accessor: "price",
+      render: (r) => (
+        <span className="font-mono">{formatCurrency(r.price ?? 0)}</span>
+      ),
+    },
+    {
       header: "Tồn kho",
       accessor: "quantity",
       sortable: true,
       render: (row) => {
-        const isLow = row.quantity <= row.minStock;
+        const isLow = row.lowStock || row.quantity === 0;
         return (
           <span
             style={{
@@ -120,7 +127,7 @@ export default function StoreInventory() {
               Hết hàng
             </Badge>
           );
-        if (row.quantity <= row.minStock)
+        if (row.lowStock)
           return (
             <Badge variant="warning" dot>
               Sắp hết
@@ -132,6 +139,15 @@ export default function StoreInventory() {
           </Badge>
         );
       },
+    },
+    {
+      header: "Cập nhật",
+      accessor: "updatedAt",
+      render: (r) => (
+        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+          {r.updatedAt ? formatDate(r.updatedAt) : "—"}
+        </span>
+      ),
     },
     {
       header: "Hành động",
