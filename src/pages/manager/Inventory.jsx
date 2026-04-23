@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Edit, Trash2, RefreshCw } from "lucide-react";
+import { Plus, Edit, Trash2, RefreshCw, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { Badge, Button, Modal } from "../../components/ui";
@@ -21,6 +21,13 @@ export default function ManagerInventory() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+
+  const [groupPages, setGroupPages] = useState({});
+  const GROUP_PAGE_SIZE = 20;
+
+  const getGroupPage = (kitchenId) => groupPages[kitchenId] ?? 0;
+  const setGroupPage = (kitchenId, p) =>
+    setGroupPages((prev) => ({ ...prev, [kitchenId]: p }));
 
   // Dropdowns
   const [kitchens, setKitchens] = useState([]);
@@ -97,11 +104,11 @@ export default function ManagerInventory() {
     setForm({
       kitchenId,
       ingredientId: item.ingredientId,
-      quantity: String(item.quantity),
+      quantity: String(item.totalQuantity),
       minStock: String(item.minStock),
-      batchNo: item.batchNo ?? "",
-      expiryDate: item.expiryDate ?? "",
-      supplier: item.supplier ?? "",
+      batchNo: "",
+      expiryDate: "",
+      supplier: "",
     });
     setErrors({});
     setShowModal(true);
@@ -327,7 +334,17 @@ export default function ManagerInventory() {
               </div>
 
               {/* Items table */}
-              <table
+              {(() => {
+                const gPage = getGroupPage(group.kitchenId);
+                const gItems = group.items ?? [];
+                const gTotalPages = Math.ceil(gItems.length / GROUP_PAGE_SIZE);
+                const pagedItems = gItems.slice(
+                  gPage * GROUP_PAGE_SIZE,
+                  (gPage + 1) * GROUP_PAGE_SIZE,
+                );
+                return (
+                  <>
+                    <table
                 style={{
                   width: "100%",
                   borderCollapse: "collapse",
@@ -338,11 +355,8 @@ export default function ManagerInventory() {
                   <tr style={{ background: "var(--surface)" }}>
                     {[
                       "Nguyên liệu",
-                      "Lô",
-                      "Nhà cung cấp",
                       "Tồn kho",
                       "Tối thiểu",
-                      "Hạn SD",
                       "Trạng thái",
                       "",
                     ].map((h) => (
@@ -363,7 +377,7 @@ export default function ManagerInventory() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(group.items ?? []).map((item) => (
+                  {pagedItems.map((item) => (
                     <tr
                       key={item.id}
                       style={{ borderTop: "1px solid var(--surface-border)" }}
@@ -383,22 +397,6 @@ export default function ManagerInventory() {
                       <td style={{ padding: "10px 16px" }}>
                         <span
                           className="font-mono"
-                          style={{ fontSize: "12px" }}
-                        >
-                          {item.batchNo || "—"}
-                        </span>
-                      </td>
-                      <td
-                        style={{
-                          padding: "10px 16px",
-                          color: "var(--text-secondary)",
-                        }}
-                      >
-                        {item.supplier || "—"}
-                      </td>
-                      <td style={{ padding: "10px 16px" }}>
-                        <span
-                          className="font-mono"
                           style={{
                             fontWeight: 600,
                             color: item.lowStock
@@ -406,7 +404,7 @@ export default function ManagerInventory() {
                               : "var(--text-primary)",
                           }}
                         >
-                          {item.quantity} {item.unit}
+                          {item.totalQuantity} {item.unit}
                         </span>
                       </td>
                       <td style={{ padding: "10px 16px" }}>
@@ -416,20 +414,6 @@ export default function ManagerInventory() {
                         >
                           {item.minStock} {item.unit}
                         </span>
-                      </td>
-                      <td
-                        style={{
-                          padding: "10px 16px",
-                          color: item.expiryDate
-                            ? "var(--text-primary)"
-                            : "var(--text-muted)",
-                        }}
-                      >
-                        {item.expiryDate
-                          ? new Date(item.expiryDate).toLocaleDateString(
-                              "vi-VN",
-                            )
-                          : "—"}
                       </td>
                       <td style={{ padding: "10px 16px" }}>
                         {item.lowStock ? (
@@ -466,6 +450,72 @@ export default function ManagerInventory() {
                   ))}
                 </tbody>
               </table>
+              {gTotalPages > 1 && (
+                <div
+                  className="data-table-pagination"
+                  style={{ borderTop: "1px solid var(--surface-border)" }}
+                >
+                  <div className="data-table-pagination__left">
+                    <span className="data-table-pagination__info">
+                      Hiển thị {gPage * GROUP_PAGE_SIZE + 1}–
+                      {Math.min((gPage + 1) * GROUP_PAGE_SIZE, gItems.length)} /{" "}
+                      {gItems.length}
+                    </span>
+                  </div>
+                  <div className="data-table-pagination__controls">
+                    <button
+                      className="data-table-pagination__btn"
+                      onClick={() => setGroupPage(group.kitchenId, 0)}
+                      disabled={gPage === 0}
+                    >
+                      <ChevronsLeft size={16} />
+                    </button>
+                    <button
+                      className="data-table-pagination__btn"
+                      onClick={() => setGroupPage(group.kitchenId, gPage - 1)}
+                      disabled={gPage === 0}
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    {Array.from({ length: Math.min(5, gTotalPages) }, (_, i) => {
+                      let p;
+                      if (gTotalPages <= 5) p = i + 1;
+                      else if (gPage + 1 <= 3) p = i + 1;
+                      else if (gPage + 1 >= gTotalPages - 2)
+                        p = gTotalPages - 4 + i;
+                      else p = gPage - 1 + i;
+                      return (
+                        <button
+                          key={p}
+                          className={`data-table-pagination__btn ${p === gPage + 1 ? "data-table-pagination__btn--active" : ""}`}
+                          onClick={() => setGroupPage(group.kitchenId, p - 1)}
+                        >
+                          {p}
+                        </button>
+                      );
+                    })}
+                    <button
+                      className="data-table-pagination__btn"
+                      onClick={() => setGroupPage(group.kitchenId, gPage + 1)}
+                      disabled={gPage >= gTotalPages - 1}
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                    <button
+                      className="data-table-pagination__btn"
+                      onClick={() =>
+                        setGroupPage(group.kitchenId, gTotalPages - 1)
+                      }
+                      disabled={gPage >= gTotalPages - 1}
+                    >
+                      <ChevronsRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
             </div>
           ))}
         </div>
@@ -473,33 +523,58 @@ export default function ManagerInventory() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: "8px",
-            marginTop: "16px",
-          }}
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={page === 0}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            ← Trước
-          </Button>
-          <span style={{ lineHeight: "32px", fontSize: "13px" }}>
-            Trang {page + 1} / {totalPages}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={page >= totalPages - 1}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Sau →
-          </Button>
+        <div className="data-table-pagination" style={{ marginTop: "16px" }}>
+          <div className="data-table-pagination__left">
+            <span className="data-table-pagination__info">
+              Trang {page + 1} / {totalPages}
+            </span>
+          </div>
+          <div className="data-table-pagination__controls">
+            <button
+              className="data-table-pagination__btn"
+              onClick={() => setPage(0)}
+              disabled={page === 0}
+            >
+              <ChevronsLeft size={16} />
+            </button>
+            <button
+              className="data-table-pagination__btn"
+              onClick={() => setPage((p) => p - 1)}
+              disabled={page === 0}
+            >
+              <ChevronLeft size={16} />
+            </button>
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let p;
+              if (totalPages <= 5) p = i + 1;
+              else if (page + 1 <= 3) p = i + 1;
+              else if (page + 1 >= totalPages - 2) p = totalPages - 4 + i;
+              else p = page - 1 + i;
+              return (
+                <button
+                  key={p}
+                  className={`data-table-pagination__btn ${p === page + 1 ? "data-table-pagination__btn--active" : ""}`}
+                  onClick={() => setPage(p - 1)}
+                >
+                  {p}
+                </button>
+              );
+            })}
+            <button
+              className="data-table-pagination__btn"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page >= totalPages - 1}
+            >
+              <ChevronRight size={16} />
+            </button>
+            <button
+              className="data-table-pagination__btn"
+              onClick={() => setPage(totalPages - 1)}
+              disabled={page >= totalPages - 1}
+            >
+              <ChevronsRight size={16} />
+            </button>
+          </div>
         </div>
       )}
 
@@ -641,8 +716,7 @@ export default function ManagerInventory() {
         }
       >
         <p style={{ fontSize: "14px" }}>
-          Xóa <strong>{confirmDelete?.ingredientName}</strong> (lô:{" "}
-          {confirmDelete?.batchNo || "—"}) khỏi kho?
+          Xóa <strong>{confirmDelete?.ingredientName}</strong> khỏi kho?
         </p>
       </Modal>
     </PageWrapper>

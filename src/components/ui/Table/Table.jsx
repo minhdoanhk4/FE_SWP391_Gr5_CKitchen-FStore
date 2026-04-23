@@ -1,7 +1,16 @@
-import { useState, useMemo } from 'react';
-import { Search, ChevronUp, ChevronDown, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
-import { Input } from '../Input/Input';
-import './Table.css';
+import { useState, useMemo } from "react";
+import {
+  Search,
+  ChevronUp,
+  ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
+  ChevronLeft,
+  ChevronRight,
+  Inbox,
+} from "lucide-react";
+import { Input } from "../Input/Input";
+import "./Table.css";
 
 const DEFAULT_PAGE_SIZE = 10;
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
@@ -9,18 +18,21 @@ const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 export function DataTable({
   columns,
   data,
+  loading = false,
   searchable = true,
-  searchPlaceholder = 'Tìm kiếm...',
+  searchPlaceholder = "Tìm kiếm...",
   toolbar,
   onRowClick,
-  emptyTitle = 'Không có dữ liệu',
-  emptyDesc = 'Chưa có dữ liệu nào được tạo.',
-  className = '',
+  emptyTitle = "Không có dữ liệu",
+  emptyDesc = "Chưa có dữ liệu nào được tạo.",
+  className = "",
   pageSize: defaultPageSize = DEFAULT_PAGE_SIZE,
+  // Server-side pagination: { page (0-indexed), pageSize, total, totalPages, onPageChange }
+  serverPagination,
 }) {
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState(null);
-  const [sortDir, setSortDir] = useState('asc');
+  const [sortDir, setSortDir] = useState("asc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPageSize);
 
@@ -29,35 +41,51 @@ export function DataTable({
     const q = search.toLowerCase();
     return data.filter((row) =>
       columns.some((col) => {
-        const val = col.accessor ? row[col.accessor] : '';
+        const val = col.accessor ? row[col.accessor] : "";
         return String(val).toLowerCase().includes(q);
-      })
+      }),
     );
   }, [data, search, columns]);
 
   const sortedData = useMemo(() => {
     if (!sortKey) return filteredData;
     return [...filteredData].sort((a, b) => {
-      const aVal = a[sortKey] ?? '';
-      const bVal = b[sortKey] ?? '';
-      if (typeof aVal === 'number' && typeof bVal === 'number') {
-        return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
+      const aVal = a[sortKey] ?? "";
+      const bVal = b[sortKey] ?? "";
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return sortDir === "asc" ? aVal - bVal : bVal - aVal;
       }
       const cmp = String(aVal).localeCompare(String(bVal));
-      return sortDir === 'asc' ? cmp : -cmp;
+      return sortDir === "asc" ? cmp : -cmp;
     });
   }, [filteredData, sortKey, sortDir]);
 
-  const totalPages = Math.ceil(sortedData.length / pageSize);
-  const pagedData = sortedData.slice((page - 1) * pageSize, page * pageSize);
+  // When server pagination is active: show all received data (server already sliced it)
+  const isServer = !!serverPagination;
+  const internalTotalPages = isServer
+    ? 1
+    : Math.ceil(sortedData.length / pageSize);
+  const pagedData = isServer
+    ? sortedData
+    : sortedData.slice((page - 1) * pageSize, page * pageSize);
+
+  // Unified pagination values
+  const sp = serverPagination;
+  const activePage = isServer ? sp.page + 1 : page; // 1-indexed
+  const activePSize = isServer ? sp.pageSize : pageSize;
+  const activeTPages = isServer ? sp.totalPages : internalTotalPages;
+  const activeTotal = isServer ? sp.total : sortedData.length;
+  const goToPage = isServer
+    ? (p) => sp.onPageChange(p - 1) // convert back to 0-indexed
+    : setPage;
 
   const handleSort = (accessor) => {
     if (!accessor) return;
     if (sortKey === accessor) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(accessor);
-      setSortDir('asc');
+      setSortDir("asc");
     }
   };
 
@@ -71,22 +99,27 @@ export function DataTable({
                 icon={Search}
                 placeholder={searchPlaceholder}
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  if (!isServer) setPage(1);
+                }}
               />
             </div>
           )}
-          {toolbar && <div className="data-table-toolbar__actions">{toolbar}</div>}
+          {toolbar && (
+            <div className="data-table-toolbar__actions">{toolbar}</div>
+          )}
         </div>
       )}
 
-      <div style={{ overflowX: 'auto' }}>
+      <div style={{ overflowX: "auto" }}>
         <table className="data-table">
           <thead>
             <tr>
               {columns.map((col, ci) => (
                 <th
                   key={col.key || col.accessor || `col-${ci}`}
-                  className={`${col.sortable ? 'sortable' : ''} ${sortKey === col.accessor ? 'sorted' : ''}`}
+                  className={`${col.sortable ? "sortable" : ""} ${sortKey === col.accessor ? "sorted" : ""}`}
                   style={{ width: col.width }}
                   onClick={() => col.sortable && handleSort(col.accessor)}
                 >
@@ -94,7 +127,11 @@ export function DataTable({
                   {col.sortable && (
                     <span className="sort-icon">
                       {sortKey === col.accessor ? (
-                        sortDir === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                        sortDir === "asc" ? (
+                          <ChevronUp size={14} />
+                        ) : (
+                          <ChevronDown size={14} />
+                        )
                       ) : (
                         <ChevronUp size={14} />
                       )}
@@ -120,7 +157,7 @@ export function DataTable({
                 <tr
                   key={row.id || i}
                   onClick={() => onRowClick?.(row)}
-                  style={{ cursor: onRowClick ? 'pointer' : 'default' }}
+                  style={{ cursor: onRowClick ? "pointer" : "default" }}
                 >
                   {columns.map((col, ci) => (
                     <td key={col.key || col.accessor || `td-${ci}`}>
@@ -134,50 +171,74 @@ export function DataTable({
         </table>
       </div>
 
-      {totalPages > 1 && (
+      {activeTPages > 1 && (
         <div className="data-table-pagination">
           <div className="data-table-pagination__left">
             <span className="data-table-pagination__info">
-              Hiển thị {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, sortedData.length)} / {sortedData.length}
+              Hiển thị {(activePage - 1) * activePSize + 1}–
+              {Math.min(activePage * activePSize, activeTotal)} / {activeTotal}
             </span>
-            <select
-              className="data-table-pagination__size-select"
-              value={pageSize}
-              onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
-              aria-label="Số dòng mỗi trang"
-            >
-              {PAGE_SIZE_OPTIONS.map(s => (
-                <option key={s} value={s}>{s} / trang</option>
-              ))}
-            </select>
+            {!isServer && (
+              <select
+                className="data-table-pagination__size-select"
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                aria-label="Số dòng mỗi trang"
+              >
+                {PAGE_SIZE_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s} / trang
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           <div className="data-table-pagination__controls">
-            <button className="data-table-pagination__btn" onClick={() => setPage(1)} disabled={page === 1}>
+            <button
+              className="data-table-pagination__btn"
+              onClick={() => goToPage(1)}
+              disabled={activePage === 1}
+            >
               <ChevronsLeft size={16} />
             </button>
-            <button className="data-table-pagination__btn" onClick={() => setPage(p => p - 1)} disabled={page === 1}>
+            <button
+              className="data-table-pagination__btn"
+              onClick={() => goToPage(activePage - 1)}
+              disabled={activePage === 1}
+            >
               <ChevronLeft size={16} />
             </button>
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+            {Array.from({ length: Math.min(5, activeTPages) }, (_, i) => {
               let p;
-              if (totalPages <= 5) p = i + 1;
-              else if (page <= 3) p = i + 1;
-              else if (page >= totalPages - 2) p = totalPages - 4 + i;
-              else p = page - 2 + i;
+              if (activeTPages <= 5) p = i + 1;
+              else if (activePage <= 3) p = i + 1;
+              else if (activePage >= activeTPages - 2) p = activeTPages - 4 + i;
+              else p = activePage - 2 + i;
               return (
                 <button
                   key={p}
-                  className={`data-table-pagination__btn ${p === page ? 'data-table-pagination__btn--active' : ''}`}
-                  onClick={() => setPage(p)}
+                  className={`data-table-pagination__btn ${p === activePage ? "data-table-pagination__btn--active" : ""}`}
+                  onClick={() => goToPage(p)}
                 >
                   {p}
                 </button>
               );
             })}
-            <button className="data-table-pagination__btn" onClick={() => setPage(p => p + 1)} disabled={page === totalPages}>
+            <button
+              className="data-table-pagination__btn"
+              onClick={() => goToPage(activePage + 1)}
+              disabled={activePage === activeTPages}
+            >
               <ChevronRight size={16} />
             </button>
-            <button className="data-table-pagination__btn" onClick={() => setPage(totalPages)} disabled={page === totalPages}>
+            <button
+              className="data-table-pagination__btn"
+              onClick={() => goToPage(activeTPages)}
+              disabled={activePage === activeTPages}
+            >
               <ChevronsRight size={16} />
             </button>
           </div>

@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
-import { DataTable, Badge, Button } from "../../components/ui";
+import { DataTable, Badge } from "../../components/ui";
 import kitchenService from "../../services/kitchenService";
+
+const PAGE_SIZE = 20;
 
 function formatDate(d) {
   if (!d) return "—";
@@ -17,7 +19,7 @@ function isExpired(date) {
 function isExpiringSoon(date) {
   if (!date) return false;
   const diff = new Date(date) - new Date();
-  return diff > 0 && diff < 7 * 24 * 60 * 60 * 1000; // 7 days
+  return diff > 0 && diff < 7 * 24 * 60 * 60 * 1000;
 }
 
 export default function KitchenInventory() {
@@ -25,18 +27,15 @@ export default function KitchenInventory() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const [search, setSearch] = useState("");
+  const [totalElements, setTotalElements] = useState(0);
 
   const fetchInventory = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await kitchenService.getInventory({
-        ingredientName: search || undefined,
-        page,
-        size: 20,
-      });
+      const data = await kitchenService.getInventory({ page, size: PAGE_SIZE });
       setInventory(data.content || []);
       setTotalPages(data.page?.totalPages ?? data.totalPages ?? 0);
+      setTotalElements(data.page?.totalElements ?? data.totalElements ?? 0);
     } catch (err) {
       console.error(err);
       toast.error(
@@ -45,7 +44,7 @@ export default function KitchenInventory() {
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, [page]);
 
   useEffect(() => {
     fetchInventory();
@@ -59,21 +58,19 @@ export default function KitchenInventory() {
     },
     {
       header: "Lô",
-      accessor: "batchNo",
       render: (r) => (
         <span className="font-mono" style={{ fontSize: "12px" }}>
-          {r.batchNo || "—"}
+          {r.batches?.[0]?.batchNo || "—"}
         </span>
       ),
     },
     {
       header: "Nhà cung cấp",
-      accessor: "supplier",
-      render: (r) => r.supplier || "—",
+      render: (r) => r.batches?.[0]?.supplier || "—",
     },
     {
       header: "Tồn kho",
-      accessor: "quantity",
+      accessor: "totalQuantity",
       sortable: true,
       render: (row) => (
         <span
@@ -82,7 +79,7 @@ export default function KitchenInventory() {
             color: row.lowStock ? "var(--danger)" : "var(--text-primary)",
           }}
         >
-          {row.quantity} {row.unit}
+          {row.totalQuantity} {row.unit}
         </span>
       ),
     },
@@ -93,11 +90,10 @@ export default function KitchenInventory() {
     },
     {
       header: "Hạn SD",
-      accessor: "expiryDate",
-      sortable: true,
       render: (row) => {
-        const expired = isExpired(row.expiryDate);
-        const expiring = isExpiringSoon(row.expiryDate);
+        const expiry = row.batches?.[0]?.expiryDate;
+        const expired = isExpired(expiry);
+        const expiring = isExpiringSoon(expiry);
         return (
           <span
             style={{
@@ -108,7 +104,7 @@ export default function KitchenInventory() {
                   : "var(--text-primary)",
             }}
           >
-            {formatDate(row.expiryDate)}
+            {formatDate(expiry)}
           </span>
         );
       },
@@ -116,7 +112,8 @@ export default function KitchenInventory() {
     {
       header: "Trạng thái",
       render: (row) => {
-        if (isExpired(row.expiryDate) && row.quantity > 0)
+        const expiry = row.batches?.[0]?.expiryDate;
+        if (isExpired(expiry) && row.totalQuantity > 0)
           return (
             <Badge variant="danger" dot>
               Hết hạn
@@ -128,7 +125,7 @@ export default function KitchenInventory() {
               Cần bổ sung
             </Badge>
           );
-        if (isExpiringSoon(row.expiryDate))
+        if (isExpiringSoon(expiry))
           return (
             <Badge variant="warning" dot>
               Sắp hết hạn
@@ -154,7 +151,7 @@ export default function KitchenInventory() {
         <div
           style={{
             padding: "12px 16px",
-            background: "var(--danger-bg, #fef2f2)",
+            background: "var(--danger-bg)",
             border: "1px solid var(--danger)",
             borderRadius: "var(--radius-md)",
             marginBottom: "16px",
@@ -170,48 +167,17 @@ export default function KitchenInventory() {
         columns={columns}
         data={inventory}
         loading={loading}
-        searchPlaceholder="Tìm nguyên liệu..."
+        searchable={false}
         emptyTitle="Không có nguyên liệu"
         emptyDesc="Kho nguyên liệu trống."
+        serverPagination={{
+          page,
+          pageSize: PAGE_SIZE,
+          total: totalElements,
+          totalPages,
+          onPageChange: (p) => setPage(p),
+        }}
       />
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: "8px",
-            marginTop: "16px",
-          }}
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={page === 0}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            ← Trước
-          </Button>
-          <span
-            style={{
-              lineHeight: "32px",
-              fontSize: "13px",
-              color: "var(--text-secondary)",
-            }}
-          >
-            Trang {page + 1} / {totalPages}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={page >= totalPages - 1}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Sau →
-          </Button>
-        </div>
-      )}
     </PageWrapper>
   );
 }

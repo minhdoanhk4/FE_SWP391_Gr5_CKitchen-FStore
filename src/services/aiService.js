@@ -7,7 +7,9 @@ export function clearSuggestCache() {
 export async function suggestIngredients(productName, allIngredients = []) {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
   if (!apiKey) {
-    throw new Error("Chưa cấu hình VITE_GROQ_API_KEY. Thêm vào file .env để dùng tính năng AI.");
+    throw new Error(
+      "Chưa cấu hình VITE_GROQ_API_KEY. Thêm vào file .env để dùng tính năng AI.",
+    );
   }
 
   if (suggestCache.has(productName)) {
@@ -39,29 +41,36 @@ Quy tắc:
 Trả về chỉ JSON array, không thêm bất kỳ văn bản nào khác:
 [{"ingredientId":"id","name":"tên","quantity":số,"unit":"đơn vị","reason":"vai trò cụ thể trong món"}]`;
 
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
+  const response = await fetch(
+    "https://api.groq.com/openai/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 800,
+      }),
     },
-    body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.1,
-      max_tokens: 800,
-    }),
-  });
+  );
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     if (response.status === 429) {
-      throw new Error("AI đang bận (quá giới hạn). Vui lòng thử lại sau vài giây.");
+      throw new Error(
+        "AI đang bận (quá giới hạn). Vui lòng thử lại sau vài giây.",
+      );
     }
-    throw new Error(errorData.error?.message || `API error: ${response.status}`);
+    throw new Error(
+      errorData.error?.message || `API error: ${response.status}`,
+    );
   }
 
   const data = await response.json();

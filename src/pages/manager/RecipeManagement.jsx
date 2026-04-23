@@ -215,18 +215,29 @@ export default function RecipeManagement() {
     setAiSuggestions([]);
     setSelectedIdxs(new Set());
     try {
-      const results = await suggestIngredients(selectedProduct.name, ingredients);
+      const results = await suggestIngredients(
+        selectedProduct.name,
+        ingredients,
+      );
       if (!results.length) {
-        toast("Kho hiện tại không có nguyên liệu phù hợp cho món này", { icon: "⚠️" });
+        toast("Kho hiện tại không có nguyên liệu phù hợp cho món này", {
+          icon: "⚠️",
+        });
         return;
       }
       setAiSuggestions(results);
       setSelectedIdxs(new Set(results.map((_, i) => i)));
-      setSuggestionQtys(Object.fromEntries(results.map((s, i) => [i, s.quantity])));
-      setSuggestionUnits(Object.fromEntries(results.map((s, i) => {
-        const cat = ingredients.find((ing) => ing.id === s.ingredientId);
-        return [i, cat?.unit || s.unit || "kg"];
-      })));
+      setSuggestionQtys(
+        Object.fromEntries(results.map((s, i) => [i, s.quantity])),
+      );
+      setSuggestionUnits(
+        Object.fromEntries(
+          results.map((s, i) => {
+            const cat = ingredients.find((ing) => ing.id === s.ingredientId);
+            return [i, cat?.unit || s.unit || "kg"];
+          }),
+        ),
+      );
     } catch (err) {
       toast.error(err.message || "AI gợi ý thất bại, vui lòng thử lại");
     } finally {
@@ -266,11 +277,13 @@ export default function RecipeManagement() {
     const results = await Promise.allSettled(
       selected.map((s, i) => {
         const origIdx = aiSuggestions.indexOf(s);
-        const catalogUnit = ingredients.find((ing) => ing.id === s.ingredientId)?.unit || s.unit;
+        const catalogUnit =
+          ingredients.find((ing) => ing.id === s.ingredientId)?.unit || s.unit;
         return managerService.recipes.create({
           productId: form.productId,
           ingredientId: s.ingredientId,
-          quantity: parseFloat(suggestionQtys[origIdx] ?? s.quantity) || s.quantity,
+          quantity:
+            parseFloat(suggestionQtys[origIdx] ?? s.quantity) || s.quantity,
           unit: suggestionUnits[origIdx] || catalogUnit,
         });
       }),
@@ -787,7 +800,13 @@ export default function RecipeManagement() {
                       </span>
 
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "baseline",
+                            gap: "6px",
+                          }}
+                        >
                           <span
                             style={{
                               fontWeight: "600",
@@ -800,16 +819,35 @@ export default function RecipeManagement() {
                           >
                             {displayName}
                           </span>
-                          <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              color: "var(--text-muted)",
+                            }}
+                          >
                             {s.ingredientId}
                           </span>
                         </div>
                         {s.reason && (
-                          <div style={{ fontSize: "11px", color: "var(--text-secondary)", marginTop: "3px", fontStyle: "italic" }}>
+                          <div
+                            style={{
+                              fontSize: "11px",
+                              color: "var(--text-secondary)",
+                              marginTop: "3px",
+                              fontStyle: "italic",
+                            }}
+                          >
                             {s.reason}
                           </div>
                         )}
-                        <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            marginTop: "2px",
+                          }}
+                        >
                           <input
                             type="number"
                             min="0"
@@ -817,7 +855,10 @@ export default function RecipeManagement() {
                             value={suggestionQtys[idx] ?? s.quantity}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) =>
-                              setSuggestionQtys((prev) => ({ ...prev, [idx]: e.target.value }))
+                              setSuggestionQtys((prev) => ({
+                                ...prev,
+                                [idx]: e.target.value,
+                              }))
                             }
                             style={{
                               width: "70px",
@@ -834,7 +875,10 @@ export default function RecipeManagement() {
                             value={suggestionUnits[idx] ?? displayUnit}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) =>
-                              setSuggestionUnits((prev) => ({ ...prev, [idx]: e.target.value }))
+                              setSuggestionUnits((prev) => ({
+                                ...prev,
+                                [idx]: e.target.value,
+                              }))
                             }
                             style={{
                               fontSize: "12px",
@@ -846,9 +890,12 @@ export default function RecipeManagement() {
                             }}
                           >
                             {UNIT_OPTIONS.map((u) => (
-                              <option key={u.value} value={u.value}>{u.label}</option>
+                              <option key={u.value} value={u.value}>
+                                {u.label}
+                              </option>
                             ))}
-                          </select>                        </div>
+                          </select>{" "}
+                        </div>
                       </div>
                     </div>
                   );
