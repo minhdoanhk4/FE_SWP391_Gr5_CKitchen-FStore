@@ -1,5 +1,13 @@
-import { useState, useEffect, useCallback } from "react";
-import { Plus, Calendar, User, Package, Clock } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  Plus,
+  Package,
+  Clock,
+  CheckCircle,
+  XCircle,
+  PlayCircle,
+  AlertTriangle,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { Card, Badge, Button } from "../../components/ui";
@@ -9,15 +17,20 @@ import kitchenService from "../../services/kitchenService";
 import "./ProductionPlan.css";
 
 const STATUS_CONFIG = {
-  PLANNED: { label: "Đã lên kế hoạch", variant: "info" },
-  IN_PROGRESS: { label: "Đang sản xuất", variant: "accent" },
+  DRAFT: { label: "Bản nháp", variant: "info" },
+  IN_PRODUCTION: { label: "Đang sản xuất", variant: "accent" },
   COMPLETED: { label: "Hoàn thành", variant: "success" },
-  // fallback for any other BE status
+  CANCELLED: { label: "Đã hủy", variant: "neutral" },
 };
 
 function formatDateTime(d) {
   if (!d) return "—";
   return new Date(d).toLocaleString("vi-VN");
+}
+
+function formatDate(d) {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("vi-VN");
 }
 
 export default function ProductionPlan() {
@@ -26,8 +39,11 @@ export default function ProductionPlan() {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [showModal, setShowModal] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
+  // Create modal
+  const [showModal, setShowModal] = useState(false);
+  const [products, setProducts] = useState([]);
   const [form, setForm] = useState({
     productId: "",
     quantity: "",
@@ -37,6 +53,18 @@ export default function ProductionPlan() {
   });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [recipeCheck, setRecipeCheck] = useState(null); // { sufficient, missing: [] }
+  const [checkingRecipe, setCheckingRecipe] = useState(false);
+
+  // Complete modal
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [completeForm, setCompleteForm] = useState({
+    expiryDate: "",
+    notes: "",
+  });
+  const [completeErrors, setCompleteErrors] = useState({});
+
+  const recipeDebounce = useRef(null);
 
   // ── Fetch plans ───────────────────────────────────────────────────────────
   const fetchPlans = useCallback(async () => {
@@ -46,7 +74,6 @@ export default function ProductionPlan() {
       setPlans(data.content || []);
       setTotalPages(data.page?.totalPages ?? data.totalPages ?? 0);
     } catch (err) {
-      console.error(err);
       toast.error(
         err.response?.data?.message || "Không thể tải kế hoạch sản xuất",
       );
@@ -59,6 +86,36 @@ export default function ProductionPlan() {
     fetchPlans();
   }, [fetchPlans]);
 
+  // ── Load products for dropdown ────────────────────────────────────────────
+  useEffect(() => {
+    kitchenService
+      .getProducts({ size: 100 })
+      .then((d) => setProducts(d.content || []))
+      .catch(() => {});
+  }, []);
+
+  // ── Recipe check (debounced) ──────────────────────────────────────────────
+  useEffect(() => {
+    setRecipeCheck(null);
+    if (!form.productId || !form.quantity || parseInt(form.quantity) <= 0)
+      return;
+    clearTimeout(recipeDebounce.current);
+    recipeDebounce.current = setTimeout(async () => {
+      setCheckingRecipe(true);
+      try {
+        const result = await kitchenService.recipeCheck(
+          form.productId,
+          parseInt(form.quantity),
+        );
+        setRecipeCheck(result);
+      } catch {
+        setRecipeCheck(null);
+      } finally {
+        setCheckingRecipe(false);
+      }
+    }, 600);
+  }, [form.productId, form.quantity]);
+
   // ── Create ────────────────────────────────────────────────────────────────
   const handleOpenNew = () => {
     setForm({
@@ -69,12 +126,13 @@ export default function ProductionPlan() {
       notes: "",
     });
     setErrors({});
+    setRecipeCheck(null);
     setShowModal(true);
   };
 
   const validate = () => {
     const errs = {};
-    if (!form.productId.trim()) errs.productId = "Vui lòng nhập mã sản phẩm";
+    if (!form.productId) errs.productId = "Vui lòng chọn sản phẩm";
     if (!form.quantity || parseInt(form.quantity) <= 0)
       errs.quantity = "Vui lòng nhập số lượng hợp lệ";
     if (!form.startDate) errs.startDate = "Vui lòng chọn ngày bắt đầu";
@@ -88,7 +146,7 @@ export default function ProductionPlan() {
     setSaving(true);
     try {
       await kitchenService.createProductionPlan({
-        productId: form.productId.trim(),
+        productId: form.productId,
         quantity: parseInt(form.quantity),
         startDate: form.startDate,
         endDate: form.endDate || undefined,
@@ -104,6 +162,76 @@ export default function ProductionPlan() {
     }
   };
 
+  // ── Actions (Start / Cancel) ──────────────────────────────────────────────
+  const handleStart = async () => {
+    if (!selectedPlan) return;
+    setActionLoading(true);
+    try {
+      await kitchenService.startProductionPlan(selectedPlan.id);
+      toast.success("Đã bắt đầu sản xuất");
+      fetchPlans();
+      setSelectedPlan((p) => ({ ...p, status: "IN_PRODUCTION" }));
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Không thể bắt đầu sản xuất");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!selectedPlan) return;
+    if (
+      !window.confirm(
+        "Xác nhận hủy kế hoạch sản xuất? Nguyên liệu đã trừ sẽ được hoàn trả.",
+      )
+    )
+      return;
+    setActionLoading(true);
+    try {
+      await kitchenService.cancelProductionPlan(selectedPlan.id);
+      toast.success("Đã hủy kế hoạch");
+      fetchPlans();
+      setSelectedPlan(null);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Không thể hủy kế hoạch");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // ── Complete ──────────────────────────────────────────────────────────────
+  const handleOpenComplete = () => {
+    setCompleteForm({ expiryDate: "", notes: "" });
+    setCompleteErrors({});
+    setShowCompleteModal(true);
+  };
+
+  const handleComplete = async () => {
+    if (!completeForm.expiryDate) {
+      setCompleteErrors({
+        expiryDate: "Vui lòng nhập ngày hết hạn thành phẩm",
+      });
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await kitchenService.completeProductionPlan(selectedPlan.id, {
+        expiryDate: completeForm.expiryDate,
+        notes: completeForm.notes || undefined,
+      });
+      toast.success("Hoàn tất sản xuất — lô thành phẩm đã được tạo");
+      setShowCompleteModal(false);
+      fetchPlans();
+      setSelectedPlan((p) => ({ ...p, status: "COMPLETED" }));
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Không thể hoàn tất sản xuất");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const selectedProduct = products.find((p) => p.id === form.productId);
+
   return (
     <PageWrapper
       title="Kế hoạch sản xuất"
@@ -114,8 +242,8 @@ export default function ProductionPlan() {
         </Button>
       }
     >
-      {/* Plans grid + detail */}
       <div className="production-layout">
+        {/* Plan list */}
         <div className="production-list">
           {loading && plans.length === 0 && (
             <p
@@ -165,11 +293,6 @@ export default function ProductionPlan() {
                   <span>
                     <Package size={14} /> {plan.quantity} {plan.unit || "phần"}
                   </span>
-                  {plan.staff && (
-                    <span>
-                      <User size={14} /> {plan.staff}
-                    </span>
-                  )}
                 </div>
                 <div className="production-card__meta">
                   <span>
@@ -239,12 +362,6 @@ export default function ProductionPlan() {
                     {selectedPlan.quantity} {selectedPlan.unit || "phần"}
                   </span>
                 </div>
-                {selectedPlan.staff && (
-                  <div className="production-detail__row">
-                    <span>Phụ trách:</span>
-                    <span>{selectedPlan.staff}</span>
-                  </div>
-                )}
                 <div className="production-detail__row">
                   <span>Bắt đầu:</span>
                   <span>{formatDateTime(selectedPlan.startDate)}</span>
@@ -261,12 +378,28 @@ export default function ProductionPlan() {
                     <span>{formatDateTime(selectedPlan.createdAt)}</span>
                   </div>
                 )}
+                {selectedPlan.sufficient === false && (
+                  <div
+                    style={{
+                      padding: "8px 12px",
+                      background: "var(--danger-bg)",
+                      borderRadius: "var(--radius-md)",
+                      color: "var(--danger)",
+                      fontSize: "13px",
+                      display: "flex",
+                      gap: "6px",
+                      alignItems: "center",
+                    }}
+                  >
+                    <AlertTriangle size={14} /> Thiếu nguyên liệu để sản xuất
+                  </div>
+                )}
               </div>
 
               {selectedPlan.notes && (
                 <div
                   style={{
-                    marginTop: "16px",
+                    marginTop: "12px",
                     padding: "12px",
                     background: "var(--surface)",
                     borderRadius: "var(--radius-md)",
@@ -275,6 +408,46 @@ export default function ProductionPlan() {
                   }}
                 >
                   💬 {selectedPlan.notes}
+                </div>
+              )}
+
+              {/* Action buttons */}
+              {(selectedPlan.status === "DRAFT" ||
+                selectedPlan.status === "IN_PRODUCTION") && (
+                <div
+                  style={{
+                    marginTop: "20px",
+                    display: "flex",
+                    gap: "8px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {selectedPlan.status === "DRAFT" && (
+                    <Button
+                      icon={PlayCircle}
+                      onClick={handleStart}
+                      disabled={actionLoading}
+                    >
+                      Bắt đầu sản xuất
+                    </Button>
+                  )}
+                  {selectedPlan.status === "IN_PRODUCTION" && (
+                    <Button
+                      icon={CheckCircle}
+                      onClick={handleOpenComplete}
+                      disabled={actionLoading}
+                    >
+                      Hoàn tất sản xuất
+                    </Button>
+                  )}
+                  <Button
+                    variant="danger"
+                    icon={XCircle}
+                    onClick={handleCancel}
+                    disabled={actionLoading}
+                  >
+                    Hủy kế hoạch
+                  </Button>
                 </div>
               )}
             </Card>
@@ -331,27 +504,68 @@ export default function ProductionPlan() {
             <Button variant="secondary" onClick={() => setShowModal(false)}>
               Hủy
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button
+              onClick={handleSave}
+              disabled={saving || (recipeCheck && !recipeCheck.sufficient)}
+            >
               {saving ? "Đang tạo..." : "Tạo kế hoạch"}
             </Button>
           </>
         }
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          <Input
-            label="Mã sản phẩm (Product ID)"
-            required
-            placeholder="VD: PROD-001"
-            value={form.productId}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, productId: e.target.value }))
-            }
-            error={errors.productId}
-          />
+          {/* Product dropdown */}
+          <div>
+            <label
+              style={{
+                fontSize: "13px",
+                fontWeight: 500,
+                marginBottom: "6px",
+                display: "block",
+              }}
+            >
+              Sản phẩm <span style={{ color: "var(--danger)" }}>*</span>
+            </label>
+            <select
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: "var(--radius-md)",
+                border: `1px solid ${errors.productId ? "var(--danger)" : "var(--border)"}`,
+                background: "var(--surface)",
+                color: "var(--text-primary)",
+                fontSize: "14px",
+              }}
+              value={form.productId}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, productId: e.target.value }))
+              }
+            >
+              <option value="">-- Chọn sản phẩm --</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.id})
+                </option>
+              ))}
+            </select>
+            {errors.productId && (
+              <p
+                style={{
+                  color: "var(--danger)",
+                  fontSize: "12px",
+                  marginTop: "4px",
+                }}
+              >
+                {errors.productId}
+              </p>
+            )}
+          </div>
+
           <Input
             label="Số lượng"
             required
             type="number"
+            min="1"
             placeholder="100"
             value={form.quantity}
             onChange={(e) =>
@@ -359,6 +573,62 @@ export default function ProductionPlan() {
             }
             error={errors.quantity}
           />
+
+          {/* Recipe check result */}
+          {checkingRecipe && (
+            <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
+              Đang kiểm tra nguyên liệu...
+            </p>
+          )}
+          {!checkingRecipe && recipeCheck && (
+            <div
+              style={{
+                padding: "10px 14px",
+                borderRadius: "var(--radius-md)",
+                fontSize: "13px",
+                background: recipeCheck.sufficient
+                  ? "var(--success-bg)"
+                  : "var(--danger-bg)",
+                color: recipeCheck.sufficient
+                  ? "var(--success)"
+                  : "var(--danger)",
+                display: "flex",
+                gap: "6px",
+                alignItems: "flex-start",
+              }}
+            >
+              {recipeCheck.sufficient ? (
+                <>
+                  <CheckCircle
+                    size={14}
+                    style={{ marginTop: 2, flexShrink: 0 }}
+                  />{" "}
+                  Đủ nguyên liệu để sản xuất{" "}
+                  {selectedProduct?.name || form.productId}
+                </>
+              ) : (
+                <>
+                  <AlertTriangle
+                    size={14}
+                    style={{ marginTop: 2, flexShrink: 0 }}
+                  />
+                  <span>
+                    Không đủ nguyên liệu.
+                    {recipeCheck.missing?.length > 0 && (
+                      <>
+                        {" "}
+                        Thiếu:{" "}
+                        {recipeCheck.missing
+                          .map((m) => m.ingredientName || m.ingredientId)
+                          .join(", ")}
+                      </>
+                    )}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+
           <div
             style={{
               display: "grid",
@@ -387,11 +657,61 @@ export default function ProductionPlan() {
               error={errors.endDate}
             />
           </div>
+
           <Textarea
             label="Ghi chú"
             placeholder="Ghi chú về quy trình sản xuất..."
             value={form.notes}
             onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+          />
+        </div>
+      </Modal>
+
+      {/* Complete Modal */}
+      <Modal
+        isOpen={showCompleteModal}
+        onClose={() => setShowCompleteModal(false)}
+        title="Hoàn tất sản xuất"
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setShowCompleteModal(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              icon={CheckCircle}
+              onClick={handleComplete}
+              disabled={actionLoading}
+            >
+              {actionLoading ? "Đang xử lý..." : "Xác nhận hoàn tất"}
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <p style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
+            Nhập ngày hết hạn cho lô thành phẩm sắp tạo.
+          </p>
+          <Input
+            label="Ngày hết hạn thành phẩm"
+            required
+            type="date"
+            value={completeForm.expiryDate}
+            onChange={(e) =>
+              setCompleteForm((f) => ({ ...f, expiryDate: e.target.value }))
+            }
+            error={completeErrors.expiryDate}
+          />
+          <Textarea
+            label="Ghi chú"
+            placeholder="Ghi chú (tùy chọn)..."
+            value={completeForm.notes}
+            onChange={(e) =>
+              setCompleteForm((f) => ({ ...f, notes: e.target.value }))
+            }
           />
         </div>
       </Modal>

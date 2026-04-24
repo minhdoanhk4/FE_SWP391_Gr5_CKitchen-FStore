@@ -41,6 +41,11 @@ const storeService = {
       .post(`/store/deliveries/${deliveryId}/confirm`, data)
       .then((r) => r.data.data),
 
+  confirmOrderReceipt: (orderId) =>
+    api
+      .post(`/store/orders/${orderId}/confirm-receipt`)
+      .then((r) => r.data.data),
+
   // ── Inventory ─────────────────────────────────────────────────────────────
   getStoreInventory: ({ productId, productName, page = 0, size = 20 } = {}) =>
     api

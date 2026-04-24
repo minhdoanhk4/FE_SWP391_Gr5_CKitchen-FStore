@@ -4,12 +4,10 @@ import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { Card, Button, Badge } from "../../components/ui";
 import { Textarea } from "../../components/ui";
-import { useAuth } from "../../contexts/AuthContext";
 import { useData } from "../../contexts/DataContext";
 import storeService from "../../services/storeService";
 
 export default function ReceiveGoods() {
-  const { user } = useAuth();
   const { STATUS_LABELS, STATUS_COLORS, formatCurrency, formatDate } =
     useData();
 
@@ -58,16 +56,8 @@ export default function ReceiveGoods() {
   }, [fetchDeliveries]);
 
   const handleConfirm = async (deliveryId, orderId) => {
-    const orderFeedback = feedback[orderId] || {};
-    const ratingNote = orderFeedback.rating
-      ? ` | Đánh giá: ${orderFeedback.rating}/5 sao`
-      : "";
     try {
-      await storeService.confirmReceipt(deliveryId, {
-        notes: (orderFeedback.comment || "Đã nhận đủ") + ratingNote,
-        temperatureOk: true,
-        receiverName: user?.name || user?.username || "Store Staff",
-      });
+      await storeService.confirmOrderReceipt(orderId);
       setConfirmedOrders((prev) => [...prev, orderId]);
       toast.success(
         `Đã xác nhận nhận hàng cho đơn ${orderId}! Tồn kho đã được cập nhật.`,

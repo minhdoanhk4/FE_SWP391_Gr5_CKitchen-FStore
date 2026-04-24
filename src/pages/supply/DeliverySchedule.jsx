@@ -27,6 +27,7 @@ import supplyService from "../../services/supplyService";
 const DELIVERY_STATUS_LABELS = {
   ASSIGNED: "Đã lên lịch",
   SHIPPING: "Đang giao",
+  WAITING_CONFIRM: "Chờ xác nhận",
   DELAYED: "Bị trễ",
   DELIVERED: "Đã giao",
   CANCELLED: "Đã hủy",
@@ -35,6 +36,7 @@ const DELIVERY_STATUS_LABELS = {
 const DELIVERY_STATUS_COLORS = {
   ASSIGNED: "info",
   SHIPPING: "accent",
+  WAITING_CONFIRM: "warning",
   DELAYED: "warning",
   DELIVERED: "success",
   CANCELLED: "danger",
@@ -43,6 +45,7 @@ const DELIVERY_STATUS_COLORS = {
 const DELIVERY_STATUS_ICONS = {
   ASSIGNED: Clock,
   SHIPPING: Truck,
+  WAITING_CONFIRM: Clock,
   DELAYED: AlertTriangle,
   DELIVERED: CheckCircle,
   CANCELLED: XCircle,
@@ -52,6 +55,7 @@ const statusTabs = [
   { value: "", label: "Tất cả" },
   { value: "ASSIGNED", label: "Đã lên lịch" },
   { value: "SHIPPING", label: "Đang giao" },
+  { value: "WAITING_CONFIRM", label: "Chờ xác nhận" },
   { value: "DELAYED", label: "Bị trễ" },
   { value: "DELIVERED", label: "Đã giao" },
   { value: "CANCELLED", label: "Đã hủy" },

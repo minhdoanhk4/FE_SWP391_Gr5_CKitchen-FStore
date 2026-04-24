@@ -22,40 +22,93 @@ function isExpiringSoon(date) {
   return diff > 0 && diff < 7 * 24 * 60 * 60 * 1000;
 }
 
-export default function KitchenInventory() {
-  const [inventory, setInventory] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  const [totalElements, setTotalElements] = useState(0);
+const TAB_STYLES = {
+  base: {
+    padding: "8px 20px",
+    borderRadius: "var(--radius-md)",
+    border: "1px solid var(--border)",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: 500,
+    transition: "all 0.15s",
+    background: "transparent",
+    color: "var(--text-secondary)",
+  },
+  active: {
+    background: "var(--primary)",
+    color: "#fff",
+    borderColor: "var(--primary)",
+  },
+};
 
-  const fetchInventory = useCallback(async () => {
-    setLoading(true);
+export default function KitchenInventory() {
+  const [tab, setTab] = useState("ingredient"); // "ingredient" | "product"
+
+  // Ingredient tab state
+  const [inventory, setInventory] = useState([]);
+  const [ingLoading, setIngLoading] = useState(true);
+  const [ingPage, setIngPage] = useState(0);
+  const [ingTotalPages, setIngTotalPages] = useState(0);
+  const [ingTotalElements, setIngTotalElements] = useState(0);
+
+  // Product tab state
+  const [productInventory, setProductInventory] = useState([]);
+  const [prodLoading, setProdLoading] = useState(true);
+  const [prodPage, setProdPage] = useState(0);
+  const [prodTotalPages, setProdTotalPages] = useState(0);
+  const [prodTotalElements, setProdTotalElements] = useState(0);
+
+  // ── Ingredient inventory ──────────────────────────────────────────────────
+  const fetchIngredients = useCallback(async () => {
+    setIngLoading(true);
     try {
-      const data = await kitchenService.getInventory({ page, size: PAGE_SIZE });
+      const data = await kitchenService.getInventory({
+        page: ingPage,
+        size: PAGE_SIZE,
+      });
       setInventory(data.content || []);
-      setTotalPages(data.page?.totalPages ?? data.totalPages ?? 0);
-      setTotalElements(data.page?.totalElements ?? data.totalElements ?? 0);
+      setIngTotalPages(data.page?.totalPages ?? data.totalPages ?? 0);
+      setIngTotalElements(data.page?.totalElements ?? data.totalElements ?? 0);
     } catch (err) {
-      console.error(err);
       toast.error(
         err.response?.data?.message || "Không thể tải kho nguyên liệu",
       );
     } finally {
-      setLoading(false);
+      setIngLoading(false);
     }
-  }, [page]);
+  }, [ingPage]);
 
   useEffect(() => {
-    fetchInventory();
-  }, [fetchInventory]);
+    if (tab === "ingredient") fetchIngredients();
+  }, [fetchIngredients, tab]);
 
-  const columns = [
-    {
-      header: "Nguyên liệu",
-      accessor: "ingredientName",
-      sortable: true,
-    },
+  // ── Product inventory ─────────────────────────────────────────────────────
+  const fetchProducts = useCallback(async () => {
+    setProdLoading(true);
+    try {
+      const data = await kitchenService.getProductInventory({
+        page: prodPage,
+        size: PAGE_SIZE,
+      });
+      setProductInventory(data.content || []);
+      setProdTotalPages(data.page?.totalPages ?? data.totalPages ?? 0);
+      setProdTotalElements(data.page?.totalElements ?? data.totalElements ?? 0);
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || "Không thể tải kho thành phẩm",
+      );
+    } finally {
+      setProdLoading(false);
+    }
+  }, [prodPage]);
+
+  useEffect(() => {
+    if (tab === "product") fetchProducts();
+  }, [fetchProducts, tab]);
+
+  // ── Ingredient columns ────────────────────────────────────────────────────
+  const ingredientColumns = [
+    { header: "Nguyên liệu", accessor: "ingredientName", sortable: true },
     {
       header: "Lô",
       render: (r) => (
@@ -64,10 +117,7 @@ export default function KitchenInventory() {
         </span>
       ),
     },
-    {
-      header: "Nhà cung cấp",
-      render: (r) => r.batches?.[0]?.supplier || "—",
-    },
+    { header: "Nhà cung cấp", render: (r) => r.batches?.[0]?.supplier || "—" },
     {
       header: "Tồn kho",
       accessor: "totalQuantity",
@@ -140,44 +190,165 @@ export default function KitchenInventory() {
     },
   ];
 
+  // ── Product columns ───────────────────────────────────────────────────────
+  const productColumns = [
+    { header: "Sản phẩm", accessor: "productName", sortable: true },
+    {
+      header: "Mã SP",
+      render: (r) => (
+        <span className="font-mono" style={{ fontSize: "12px" }}>
+          {r.productId}
+        </span>
+      ),
+    },
+    {
+      header: "Tồn kho",
+      accessor: "totalQuantity",
+      sortable: true,
+      render: (row) => (
+        <span
+          style={{
+            fontWeight: 600,
+            color:
+              row.totalQuantity === 0 ? "var(--danger)" : "var(--text-primary)",
+          }}
+        >
+          {row.totalQuantity} {row.unit || "cái"}
+        </span>
+      ),
+    },
+    {
+      header: "Lô gần nhất hết hạn",
+      render: (r) => {
+        const expiry = r.nearestExpiryDate || r.batches?.[0]?.expiryDate;
+        const expired = isExpired(expiry);
+        const expiring = isExpiringSoon(expiry);
+        return (
+          <span
+            style={{
+              color: expired
+                ? "var(--danger)"
+                : expiring
+                  ? "var(--warning)"
+                  : "var(--text-primary)",
+            }}
+          >
+            {formatDate(expiry)}
+          </span>
+        );
+      },
+    },
+    {
+      header: "Trạng thái",
+      render: (row) => {
+        if (row.totalQuantity === 0)
+          return (
+            <Badge variant="neutral" dot>
+              Hết hàng
+            </Badge>
+          );
+        const expiry = row.nearestExpiryDate || row.batches?.[0]?.expiryDate;
+        if (isExpired(expiry))
+          return (
+            <Badge variant="danger" dot>
+              Hết hạn
+            </Badge>
+          );
+        if (isExpiringSoon(expiry))
+          return (
+            <Badge variant="warning" dot>
+              Sắp hết hạn
+            </Badge>
+          );
+        return (
+          <Badge variant="success" dot>
+            Có hàng
+          </Badge>
+        );
+      },
+    },
+  ];
+
   const lowStockCount = inventory.filter((i) => i.lowStock).length;
 
   return (
     <PageWrapper
-      title="Kho nguyên liệu"
-      subtitle="Xem tồn kho nguyên liệu, hạn sử dụng và lô hàng"
+      title="Quản lý kho"
+      subtitle="Xem tồn kho nguyên liệu và thành phẩm"
     >
-      {lowStockCount > 0 && (
-        <div
-          style={{
-            padding: "12px 16px",
-            background: "var(--danger-bg)",
-            border: "1px solid var(--danger)",
-            borderRadius: "var(--radius-md)",
-            marginBottom: "16px",
-            fontSize: "14px",
-            color: "var(--danger)",
-          }}
-        >
-          {lowStockCount} nguyên liệu dưới mức tối thiểu.
-        </div>
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+        {[
+          { key: "ingredient", label: "Nguyên liệu" },
+          { key: "product", label: "Thành phẩm" },
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            style={{
+              ...TAB_STYLES.base,
+              ...(tab === key ? TAB_STYLES.active : {}),
+            }}
+            onClick={() => setTab(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Ingredient tab */}
+      {tab === "ingredient" && (
+        <>
+          {lowStockCount > 0 && (
+            <div
+              style={{
+                padding: "12px 16px",
+                background: "var(--danger-bg)",
+                border: "1px solid var(--danger)",
+                borderRadius: "var(--radius-md)",
+                marginBottom: "16px",
+                fontSize: "14px",
+                color: "var(--danger)",
+              }}
+            >
+              {lowStockCount} nguyên liệu dưới mức tối thiểu.
+            </div>
+          )}
+          <DataTable
+            columns={ingredientColumns}
+            data={inventory}
+            loading={ingLoading}
+            searchable={false}
+            emptyTitle="Không có nguyên liệu"
+            emptyDesc="Kho nguyên liệu trống."
+            serverPagination={{
+              page: ingPage,
+              pageSize: PAGE_SIZE,
+              total: ingTotalElements,
+              totalPages: ingTotalPages,
+              onPageChange: (p) => setIngPage(p),
+            }}
+          />
+        </>
       )}
 
-      <DataTable
-        columns={columns}
-        data={inventory}
-        loading={loading}
-        searchable={false}
-        emptyTitle="Không có nguyên liệu"
-        emptyDesc="Kho nguyên liệu trống."
-        serverPagination={{
-          page,
-          pageSize: PAGE_SIZE,
-          total: totalElements,
-          totalPages,
-          onPageChange: (p) => setPage(p),
-        }}
-      />
+      {/* Product tab */}
+      {tab === "product" && (
+        <DataTable
+          columns={productColumns}
+          data={productInventory}
+          loading={prodLoading}
+          searchable={false}
+          emptyTitle="Không có thành phẩm"
+          emptyDesc="Kho thành phẩm trống."
+          serverPagination={{
+            page: prodPage,
+            pageSize: PAGE_SIZE,
+            total: prodTotalElements,
+            totalPages: prodTotalPages,
+            onPageChange: (p) => setProdPage(p),
+          }}
+        />
+      )}
     </PageWrapper>
   );
 }

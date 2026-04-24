@@ -177,21 +177,26 @@
 .order-confirm {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: var(--space-4);
-  padding: var(--space-4) 0;
+  padding: var(--space-2) 0;
+}
+
+.order-confirm__header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
   text-align: center;
 }
 
 .order-confirm__icon {
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
-  background: var(--warning-bg);
-  color: var(--warning);
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .order-confirm__message {

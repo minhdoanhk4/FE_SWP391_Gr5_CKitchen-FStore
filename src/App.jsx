@@ -35,6 +35,8 @@ import StoreSales from "./pages/store/Sales";
 import KitchenOrders from "./pages/kitchen/Orders";
 import KitchenInventory from "./pages/kitchen/Inventory";
 import ProductionPlan from "./pages/kitchen/ProductionPlan";
+import IngredientBatches from "./pages/kitchen/IngredientBatches";
+import ProductBatches from "./pages/kitchen/ProductBatches";
 
 // Supply pages
 import SupplyOrders from "./pages/supply/Orders";
@@ -126,6 +128,11 @@ function AppRoutes() {
           />
           <Route path="/kitchen/production" element={<ProductionPlan />} />
           <Route path="/kitchen/inventory" element={<KitchenInventory />} />
+          <Route
+            path="/kitchen/ingredient-batches"
+            element={<IngredientBatches />}
+          />
+          <Route path="/kitchen/product-batches" element={<ProductBatches />} />
         </Route>
 
         {/* Supply Coordinator */}

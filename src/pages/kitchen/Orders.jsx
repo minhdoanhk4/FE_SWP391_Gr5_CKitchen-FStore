@@ -5,11 +5,16 @@ import {
   User,
   FileText,
   ChevronRight,
-  AlertTriangle,
   Eye,
   ArrowRight,
   UserPlus,
   Flag,
+  PackageCheck,
+  PackageX,
+  Loader2,
+  XCircle,
+  ChefHat,
+  Package,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
@@ -97,6 +102,40 @@ const statusTabs = [
 function formatDate(d) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("vi-VN");
+}
+
+// Returns icon component, background color, icon color, and modal title for each target status
+function getConfirmMeta(toStatus) {
+  switch (toStatus) {
+    case "CANCELLED":
+      return {
+        Icon: XCircle,
+        bg: "var(--danger-bg)",
+        color: "var(--danger)",
+        title: "Hủy đơn hàng",
+      };
+    case "IN_PROGRESS":
+      return {
+        Icon: ChefHat,
+        bg: "var(--accent-bg, var(--primary-bg))",
+        color: "var(--accent, var(--primary))",
+        title: "Bắt đầu sản xuất",
+      };
+    case "PACKED_WAITING_SHIPPER":
+      return {
+        Icon: Package,
+        bg: "var(--primary-bg)",
+        color: "var(--primary)",
+        title: "Đóng gói & chờ shipper",
+      };
+    default:
+      return {
+        Icon: ArrowRight,
+        bg: "var(--primary-bg)",
+        color: "var(--primary)",
+        title: "Chuyển trạng thái",
+      };
+  }
 }
 function formatDateTime(d) {
   if (!d) return "—";
@@ -256,10 +295,12 @@ export default function KitchenOrders({
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [pendingChange, setPendingChange] = useState(null);
   const [statusNotes, setStatusNotes] = useState("");
   const [validStatuses, setValidStatuses] = useState([]);
+  const [stockCheck, setStockCheck] = useState(null); // null | { loading, rows: [{name, needed, available, unit, ok}] }
 
   // ── Fetch valid order statuses from BE ────────────────────────────────
   useEffect(() => {
@@ -286,6 +327,7 @@ export default function KitchenOrders({
       });
       setOrders(data.content || []);
       setTotalPages(data.page?.totalPages ?? data.totalPages ?? 0);
+      setTotalElements(data.page?.totalElements ?? data.totalElements ?? 0);
     } catch (err) {
       console.error(err);
       toast.error(
@@ -315,6 +357,11 @@ export default function KitchenOrders({
   };
 
   // ── Status advance ────────────────────────────────────────────────────────
+  const closeStatusModal = () => {
+    setPendingChange(null);
+    setStockCheck(null);
+  };
+
   const openStatusChange = (e, order, targetStatus) => {
     e.stopPropagation();
     setPendingChange({
@@ -324,6 +371,34 @@ export default function KitchenOrders({
       toStatus: targetStatus,
     });
     setStatusNotes("");
+    setStockCheck(null);
+
+    // Pre-check product stock before packing — FEFO deduction happens at this transition
+    if (targetStatus === "PACKED_WAITING_SHIPPER" && order.items?.length) {
+      setStockCheck({ loading: true, rows: [] });
+      kitchenService
+        .getProductInventory({ size: 200 })
+        .then((data) => {
+          const inv = data.content || [];
+          const rows = order.items.map((item) => {
+            const found = inv.find(
+              (p) =>
+                p.productId === item.productId ||
+                p.productName === item.productName,
+            );
+            const available = found?.totalQuantity ?? 0;
+            return {
+              name: item.productName,
+              needed: item.quantity,
+              available,
+              unit: item.unit || found?.unit || "cái",
+              ok: available >= item.quantity,
+            };
+          });
+          setStockCheck({ loading: false, rows });
+        })
+        .catch(() => setStockCheck({ loading: false, rows: [] }));
+    }
   };
 
   const handleConfirmChange = async () => {
@@ -555,45 +630,14 @@ export default function KitchenOrders({
         onRowClick={(row) => handleViewDetail(row)}
         emptyTitle="Không có đơn hàng"
         emptyDesc="Chưa có đơn hàng nào ở trạng thái này."
+        serverPagination={{
+          page,
+          pageSize: 20,
+          total: totalElements,
+          totalPages,
+          onPageChange: (p) => setPage(p),
+        }}
       />
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: "8px",
-            marginTop: "16px",
-          }}
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={page === 0}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            ← Trước
-          </Button>
-          <span
-            style={{
-              lineHeight: "32px",
-              fontSize: "13px",
-              color: "var(--text-secondary)",
-            }}
-          >
-            Trang {page + 1} / {totalPages}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={page >= totalPages - 1}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Sau →
-          </Button>
-        </div>
-      )}
 
       {/* Order detail drawer */}
       <OrderDetailDrawer
@@ -603,46 +647,162 @@ export default function KitchenOrders({
       />
 
       {/* Status change confirmation modal */}
-      <Modal
-        isOpen={!!pendingChange}
-        onClose={() => setPendingChange(null)}
-        title="Xác nhận chuyển trạng thái"
-        footer={
-          <div className="order-confirm__actions">
-            <Button variant="ghost" onClick={() => setPendingChange(null)}>
-              Hủy
-            </Button>
-            <Button
-              variant={
-                pendingChange?.toStatus === "CANCELLED" ? "danger" : "primary"
-              }
-              onClick={handleConfirmChange}
-            >
-              Xác nhận
-            </Button>
-          </div>
-        }
-      >
-        {pendingChange && (
-          <div className="order-confirm">
-            <div className="order-confirm__icon">
-              <AlertTriangle size={32} />
-            </div>
-            <p className="order-confirm__message">
-              Bạn có chắc chắn muốn chuyển đơn hàng{" "}
-              <strong>{pendingChange.orderId}</strong>
-              {pendingChange.storeName && ` (${pendingChange.storeName})`}
-            </p>
-            <div className="order-confirm__status-flow">
-              <Badge variant={STATUS_COLORS[pendingChange.fromStatus]} dot>
-                {STATUS_LABELS[pendingChange.fromStatus]}
-              </Badge>
-              <ChevronRight size={20} className="order-confirm__arrow" />
-              <Badge variant={STATUS_COLORS[pendingChange.toStatus]} dot>
-                {STATUS_LABELS[pendingChange.toStatus]}
-              </Badge>
-            </div>
-            <div style={{ marginTop: "16px" }}>
+      {pendingChange && (() => {
+        const meta = getConfirmMeta(pendingChange.toStatus);
+        const isCancel = pendingChange.toStatus === "CANCELLED";
+        const isPacking = pendingChange.toStatus === "PACKED_WAITING_SHIPPER";
+        return (
+          <Modal
+            isOpen
+            onClose={closeStatusModal}
+            title={meta.title}
+            footer={
+              <div className="order-confirm__actions">
+                <Button variant="ghost" onClick={closeStatusModal}>
+                  Hủy
+                </Button>
+                <Button
+                  variant={isCancel ? "danger" : "primary"}
+                  onClick={handleConfirmChange}
+                  disabled={
+                    isPacking && stockCheck?.rows?.some((r) => !r.ok)
+                  }
+                >
+                  {isCancel ? "Xác nhận hủy" : "Xác nhận"}
+                </Button>
+              </div>
+            }
+          >
+            <div className="order-confirm">
+              {/* Centered header: icon + message + status flow */}
+              <div className="order-confirm__header">
+                <div
+                  className="order-confirm__icon"
+                  style={{ background: meta.bg, color: meta.color }}
+                >
+                  <meta.Icon size={24} />
+                </div>
+                <p className="order-confirm__message">
+                  {isCancel ? "Bạn có chắc chắn muốn hủy đơn hàng " : "Chuyển đơn hàng "}
+                  <strong>{pendingChange.orderId}</strong>
+                  {pendingChange.storeName && ` (${pendingChange.storeName})`}
+                  {isCancel ? "? Thao tác này không thể hoàn tác." : "."}
+                </p>
+                <div className="order-confirm__status-flow">
+                  <Badge variant={STATUS_COLORS[pendingChange.fromStatus]} dot>
+                    {STATUS_LABELS[pendingChange.fromStatus]}
+                  </Badge>
+                  {isCancel ? (
+                    <XCircle
+                      size={16}
+                      className="order-confirm__arrow"
+                      style={{ color: "var(--danger)" }}
+                    />
+                  ) : (
+                    <ChevronRight size={20} className="order-confirm__arrow" />
+                  )}
+                  <Badge variant={STATUS_COLORS[pendingChange.toStatus]} dot>
+                    {STATUS_LABELS[pendingChange.toStatus]}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Stock check — full width, left-aligned */}
+              {isPacking && stockCheck && (
+                <div
+                  style={{
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-md)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "8px 12px",
+                      background: "var(--surface)",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "var(--text-secondary)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}
+                  >
+                    {stockCheck.loading ? (
+                      <Loader2 size={12} className="spin" />
+                    ) : stockCheck.rows.every((r) => r.ok) ? (
+                      <PackageCheck size={12} style={{ color: "var(--success)" }} />
+                    ) : (
+                      <PackageX size={12} style={{ color: "var(--danger)" }} />
+                    )}
+                    Kiểm tra tồn kho thành phẩm
+                  </div>
+                  {!stockCheck.loading && stockCheck.rows.length > 0 && (
+                    <div style={{ padding: "8px 0" }}>
+                      {stockCheck.rows.map((row, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            padding: "6px 12px",
+                            fontSize: "13px",
+                            background: row.ok ? "transparent" : "var(--danger-bg)",
+                            gap: "12px",
+                          }}
+                        >
+                          <span style={{ flex: 1 }}>{row.name}</span>
+                          <span
+                            style={{
+                              color: "var(--text-secondary)",
+                              fontSize: "12px",
+                            }}
+                          >
+                            Cần: <strong>{row.needed}</strong> · Tồn:{" "}
+                            <strong
+                              style={{
+                                color: row.ok ? "var(--success)" : "var(--danger)",
+                              }}
+                            >
+                              {row.available}
+                            </strong>{" "}
+                            {row.unit}
+                          </span>
+                          {row.ok ? (
+                            <PackageCheck
+                              size={14}
+                              style={{ color: "var(--success)", flexShrink: 0 }}
+                            />
+                          ) : (
+                            <PackageX
+                              size={14}
+                              style={{ color: "var(--danger)", flexShrink: 0 }}
+                            />
+                          )}
+                        </div>
+                      ))}
+                      {stockCheck.rows.some((r) => !r.ok) && (
+                        <div
+                          style={{
+                            padding: "8px 12px",
+                            fontSize: "12px",
+                            color: "var(--danger)",
+                            borderTop: "1px solid var(--border)",
+                            marginTop: "4px",
+                          }}
+                        >
+                          Không đủ tồn kho. Hãy tạo kế hoạch sản xuất mới trước.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Notes textarea — always full width */}
               <Textarea
                 label="Ghi chú (tùy chọn)"
                 placeholder="Ghi chú thêm về lý do chuyển trạng thái..."
@@ -650,9 +810,9 @@ export default function KitchenOrders({
                 onChange={(e) => setStatusNotes(e.target.value)}
               />
             </div>
-          </div>
-        )}
-      </Modal>
+          </Modal>
+        );
+      })()}
     </PageWrapper>
   );
 }
