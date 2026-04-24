@@ -1,4 +1,4 @@
-﻿import { useState, useRef } from "react";
+import { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Animated,
   StatusBar,
+  ScrollView,
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
 import T from "../theme";
@@ -19,9 +20,11 @@ export default function LoginScreen() {
   const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const btnScale = useRef(new Animated.Value(1)).current;
+  const passwordRef = useRef(null);
 
   const animatePress = () => {
     Animated.sequence([
@@ -52,78 +55,98 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.root}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
     >
       <StatusBar barStyle="light-content" backgroundColor={T.colors.primaryDark} />
 
-      {/* Top hero section */}
-      <View style={styles.hero}>
-        <View style={styles.logoRing}>
-          <Text style={styles.logoEmoji}>🚚</Text>
-        </View>
-        <Text style={styles.appName}>CKitchen Shipper</Text>
-        <Text style={styles.appTagline}>Nền tảng giao hàng thông minh</Text>
-        {/* Decorative dots */}
-        <View style={styles.decorRow}>
-          {[0, 1, 2].map((i) => (
-            <View key={i} style={[styles.dot, i === 1 && styles.dotActive]} />
-          ))}
-        </View>
-      </View>
-
-      {/* Bottom sheet card */}
-      <View style={styles.sheet}>
-        <Text style={styles.sheetTitle}>Đăng nhập</Text>
-        <Text style={styles.sheetSub}>Chào mừng bạn trở lại!</Text>
-
-        {/* Username */}
-        <View style={[styles.inputRow, focusedField === "user" && styles.inputRowFocused]}>
-          <Text style={styles.inputIcon}>👤</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Tên đăng nhập"
-            placeholderTextColor={T.colors.textMuted}
-            autoCapitalize="none"
-            value={username}
-            onChangeText={setUsername}
-            onFocus={() => setFocusedField("user")}
-            onBlur={() => setFocusedField(null)}
-          />
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        bounces={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Top hero section */}
+        <View style={styles.hero}>
+          <View style={styles.logoRing}>
+            <Text style={styles.logoEmoji}>🚚</Text>
+          </View>
+          <Text style={styles.appName}>CKitchen Shipper</Text>
+          <Text style={styles.appTagline}>Nền tảng giao hàng thông minh</Text>
+          {/* Decorative dots */}
+          <View style={styles.decorRow}>
+            {[0, 1, 2].map((i) => (
+              <View key={i} style={[styles.dot, i === 1 && styles.dotActive]} />
+            ))}
+          </View>
         </View>
 
-        {/* Password */}
-        <View style={[styles.inputRow, focusedField === "pass" && styles.inputRowFocused]}>
-          <Text style={styles.inputIcon}>🔒</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Mật khẩu"
-            placeholderTextColor={T.colors.textMuted}
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            onFocus={() => setFocusedField("pass")}
-            onBlur={() => setFocusedField(null)}
-            onSubmitEditing={handleLogin}
-          />
+        {/* Bottom sheet card */}
+        <View style={styles.sheet}>
+          <Text style={styles.sheetTitle}>Đăng nhập</Text>
+          <Text style={styles.sheetSub}>Chào mừng bạn trở lại!</Text>
+
+          {/* Username */}
+          <View style={[styles.inputRow, focusedField === "user" && styles.inputRowFocused]}>
+            <Text style={styles.inputIcon}>👤</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Tên đăng nhập"
+              placeholderTextColor={T.colors.textMuted}
+              autoCapitalize="none"
+              returnKeyType="next"
+              value={username}
+              onChangeText={setUsername}
+              onFocus={() => setFocusedField("user")}
+              onBlur={() => setFocusedField(null)}
+              onSubmitEditing={() => passwordRef.current?.focus()}
+              blurOnSubmit={false}
+            />
+          </View>
+
+          {/* Password */}
+          <View style={[styles.inputRow, focusedField === "pass" && styles.inputRowFocused]}>
+            <Text style={styles.inputIcon}>🔒</Text>
+            <TextInput
+              ref={passwordRef}
+              style={styles.textInput}
+              placeholder="Mật khẩu"
+              placeholderTextColor={T.colors.textMuted}
+              secureTextEntry={!showPassword}
+              returnKeyType="go"
+              value={password}
+              onChangeText={setPassword}
+              onFocus={() => setFocusedField("pass")}
+              onBlur={() => setFocusedField(null)}
+              onSubmitEditing={handleLogin}
+            />
+            <TouchableOpacity
+              style={styles.eyeBtn}
+              onPress={() => setShowPassword((prev) => !prev)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              activeOpacity={0.6}
+            >
+              <Text style={styles.eyeIcon}>{showPassword ? "🙈" : "👁️"}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Animated.View style={{ transform: [{ scale: btnScale }] }}>
+            <TouchableOpacity
+              style={[styles.btn, loading && styles.btnDisabled]}
+              onPress={handleLogin}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.btnText}>Đăng nhập  →</Text>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Text style={styles.footerText}>CKitchen Chain · Phiên bản 1.0</Text>
         </View>
-
-        <Animated.View style={{ transform: [{ scale: btnScale }] }}>
-          <TouchableOpacity
-            style={[styles.btn, loading && styles.btnDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.btnText}>Đăng nhập  →</Text>
-            )}
-          </TouchableOpacity>
-        </Animated.View>
-
-        <Text style={styles.footerText}>CKitchen Chain · Phiên bản 1.0</Text>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -131,12 +154,17 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: T.colors.primaryDark },
 
+  scrollContent: {
+    flexGrow: 1,
+  },
+
   // Hero
   hero: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingTop: 20,
+    minHeight: 260,
   },
   logoRing: {
     width: 92,
@@ -211,6 +239,16 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 15,
     color: T.colors.textDark,
+  },
+
+  // Eye toggle button
+  eyeBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    marginLeft: 4,
+  },
+  eyeIcon: {
+    fontSize: 18,
   },
 
   // Button

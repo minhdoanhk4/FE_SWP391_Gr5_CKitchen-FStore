@@ -1,4 +1,4 @@
-﻿import { useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import {
   StatusBar,
   Linking,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Location from "expo-location";
@@ -24,6 +26,17 @@ function formatDateTime(d) {
   return new Date(d).toLocaleString("vi-VN", {
     day: "2-digit",
     month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatFullDateTime(d) {
+  if (!d) return "-";
+  return new Date(d).toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -181,23 +194,33 @@ export default function ActiveDeliveriesScreen() {
           {/* Delivery ID */}
           {item.id && (
             <View style={styles.metaRow}>
-              <Text style={styles.metaIcon}>{""}</Text>
+              <Text style={styles.metaIcon}>📋</Text>
               <Text style={styles.metaText}>Vận đơn: {item.id}</Text>
             </View>
           )}
 
           {/* Store */}
           <View style={styles.metaRow}>
-            <Text style={styles.metaIcon}>{""}</Text>
+            <Text style={styles.metaIcon}>🏪</Text>
             <Text style={styles.metaText} numberOfLines={1}>
               {item.storeName || "-"}
             </Text>
           </View>
 
+          {/* Coordinator */}
+          {item.coordinatorName && (
+            <View style={styles.metaRow}>
+              <Text style={styles.metaIcon}>👔</Text>
+              <Text style={styles.metaText} numberOfLines={1}>
+                ĐPV: {item.coordinatorName}
+              </Text>
+            </View>
+          )}
+
           {/* Pickup time */}
           {item.pickedUpAt && (
             <View style={styles.metaRow}>
-              <Text style={styles.metaIcon}>{""}</Text>
+              <Text style={styles.metaIcon}>🕐</Text>
               <Text style={styles.metaText}>
                 Nhận lúc: {formatDateTime(item.pickedUpAt)}
               </Text>
@@ -266,7 +289,7 @@ export default function ActiveDeliveriesScreen() {
           }
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
-              <Text style={styles.emptyIcon}>{""}</Text>
+              <Text style={styles.emptyIcon}>📭</Text>
               <Text style={styles.emptyTitle}>Không có đơn nào đang giao</Text>
               <Text style={styles.emptySub}>Quét QR để nhận đơn mới</Text>
             </View>
@@ -274,61 +297,66 @@ export default function ActiveDeliveriesScreen() {
         />
       )}
 
-      {/* Bottom-sheet confirm modal */}
+      {/* ── Bottom-sheet confirm modal ──────────────────────────────────────── */}
       <Modal visible={modalVisible} transparent animationType="slide">
-        <View style={styles.overlay}>
-          <TouchableOpacity
-            style={styles.overlayBg}
-            onPress={() => !submitting && setModalVisible(false)}
-          />
-          <View style={styles.sheet}>
-            {/* Handle bar */}
-            <View style={styles.handle} />
-
-            <Text style={styles.sheetTitle}>Xác nhận đã giao hàng</Text>
-            <Text style={styles.sheetSub}>
-              Đơn hàng:{" "}
-              <Text style={{ fontWeight: "700", color: T.colors.textDark }}>
-                #{selectedDelivery?.orderId}
-              </Text>
-            </Text>
-
-            <TextInput
-              style={styles.notesInput}
-              placeholder="Ghi chú giao hàng (tùy chọn)…"
-              placeholderTextColor={T.colors.textMuted}
-              multiline
-              numberOfLines={3}
-              value={notes}
-              onChangeText={setNotes}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View style={styles.overlay}>
+            <TouchableOpacity
+              style={styles.overlayBg}
+              onPress={() => !submitting && setModalVisible(false)}
             />
+            <View style={styles.modalSheet}>
+              {/* Handle bar */}
+              <View style={styles.handle} />
 
-            <TouchableOpacity
-              style={[styles.confirmBtn, submitting && { opacity: 0.6 }]}
-              onPress={handleMarkSuccess}
-              disabled={submitting}
-              activeOpacity={0.85}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.confirmBtnText}>
-                  ✅ Xác nhận giao thành công
+              <Text style={styles.sheetTitle}>Xác nhận đã giao hàng</Text>
+              <Text style={styles.sheetSub}>
+                Đơn hàng:{" "}
+                <Text style={{ fontWeight: "700", color: T.colors.textDark }}>
+                  #{selectedDelivery?.orderId}
                 </Text>
-              )}
-            </TouchableOpacity>
+              </Text>
 
-            <TouchableOpacity
-              style={styles.cancelBtn}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.cancelBtnText}>Huỷ</Text>
-            </TouchableOpacity>
+              <TextInput
+                style={styles.notesInput}
+                placeholder="Ghi chú giao hàng (tùy chọn)…"
+                placeholderTextColor={T.colors.textMuted}
+                multiline
+                numberOfLines={3}
+                value={notes}
+                onChangeText={setNotes}
+              />
+
+              <TouchableOpacity
+                style={[styles.confirmBtn, submitting && { opacity: 0.6 }]}
+                onPress={handleMarkSuccess}
+                disabled={submitting}
+                activeOpacity={0.85}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.confirmBtnText}>
+                    ✅ Xác nhận giao thành công
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.cancelBtnText}>Huỷ</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
-      {/* Detail bottom sheet */}
+      {/* ── Detail bottom sheet ─────────────────────────────────────────────── */}
       <Modal
         visible={!!detailItem}
         transparent
@@ -340,7 +368,7 @@ export default function ActiveDeliveriesScreen() {
             style={styles.overlayBg}
             onPress={() => setDetailItem(null)}
           />
-          <View style={[styles.sheet, { maxHeight: "80%" }]}>
+          <View style={[styles.modalSheet, { maxHeight: "85%" }]}>
             <View style={styles.handle} />
             <Text style={styles.sheetTitle}>Chi tiết vận đơn</Text>
             {detailItem && (
@@ -363,15 +391,50 @@ export default function ActiveDeliveriesScreen() {
               <ScrollView
                 showsVerticalScrollIndicator={false}
                 style={{ marginTop: 8 }}
+                keyboardShouldPersistTaps="handled"
               >
-                {/* Meta info */}
+                {/* Status badge */}
+                {detailItem.status && (
+                  <View style={styles.statusRow}>
+                    {(() => {
+                      const meta = STATUS_META[detailItem.status] ?? {
+                        label: detailItem.status,
+                        color: T.colors.textMuted,
+                        dot: "⚪",
+                      };
+                      return (
+                        <View
+                          style={[
+                            styles.statusBadgeLg,
+                            {
+                              backgroundColor: meta.color + "14",
+                              borderColor: meta.color + "40",
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[styles.statusBadgeLgText, { color: meta.color }]}
+                          >
+                            {meta.dot} {meta.label}
+                          </Text>
+                        </View>
+                      );
+                    })()}
+                  </View>
+                )}
+
+                {/* ── Delivery info section ─── */}
+                <Text style={styles.detailSection}>Thông tin giao hàng</Text>
                 {[
                   ["Vận đơn", detailItem.id],
                   ["Cửa hàng", detailItem.storeName],
                   ["Địa chỉ", detailItem.storeAddress],
-                  ["Nhận lúc", detailItem.pickedUpAt ? formatDateTime(detailItem.pickedUpAt) : null],
-                  ["Giao lúc", detailItem.deliveredAt ? formatDateTime(detailItem.deliveredAt) : null],
-                  ["Khoảng cách", detailItem.distance != null ? `${Number(detailItem.distance).toFixed(1)} km` : null],
+                  [
+                    "Khoảng cách",
+                    detailItem.distance != null
+                      ? `${Number(detailItem.distance).toFixed(1)} km`
+                      : null,
+                  ],
                 ]
                   .filter(([, v]) => v)
                   .map(([label, value]) => (
@@ -380,6 +443,73 @@ export default function ActiveDeliveriesScreen() {
                       <Text style={styles.detailValue}>{value}</Text>
                     </View>
                   ))}
+
+                {/* ── People section ─── */}
+                <Text style={styles.detailSection}>Nhân sự</Text>
+                {[
+                  ["Điều phối viên", detailItem.coordinatorName],
+                  ["Shipper", detailItem.shipperName],
+                  ["Người nhận", detailItem.receiverName],
+                ]
+                  .filter(([, v]) => v)
+                  .map(([label, value]) => (
+                    <View key={label} style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>{label}</Text>
+                      <Text style={styles.detailValue}>{value}</Text>
+                    </View>
+                  ))}
+                {/* Show placeholder if no people info */}
+                {!detailItem.coordinatorName &&
+                  !detailItem.shipperName &&
+                  !detailItem.receiverName && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>
+                        Chưa có thông tin nhân sự
+                      </Text>
+                    </View>
+                  )}
+
+                {/* ── Timeline section ─── */}
+                <Text style={styles.detailSection}>Mốc thời gian</Text>
+                {[
+                  ["Tạo lúc", detailItem.createdAt],
+                  ["Phân công", detailItem.assignedAt],
+                  ["Nhận hàng", detailItem.pickedUpAt],
+                  ["Giao hàng", detailItem.deliveredAt],
+                  ["Cập nhật", detailItem.updatedAt],
+                ]
+                  .filter(([, v]) => v)
+                  .map(([label, dateVal]) => (
+                    <View key={label} style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>{label}</Text>
+                      <Text style={styles.detailValue}>
+                        {formatFullDateTime(dateVal)}
+                      </Text>
+                    </View>
+                  ))}
+
+                {/* ── Quality check ─── */}
+                {detailItem.temperatureOk != null && (
+                  <>
+                    <Text style={styles.detailSection}>Kiểm tra chất lượng</Text>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Nhiệt độ</Text>
+                      <Text
+                        style={[
+                          styles.detailValue,
+                          {
+                            color: detailItem.temperatureOk
+                              ? T.colors.success
+                              : T.colors.danger,
+                            fontWeight: "700",
+                          },
+                        ]}
+                      >
+                        {detailItem.temperatureOk ? "✅ Đạt" : "❌ Không đạt"}
+                      </Text>
+                    </View>
+                  </>
+                )}
 
                 {/* Items */}
                 {detailItem.items?.length > 0 && (
@@ -404,11 +534,14 @@ export default function ActiveDeliveriesScreen() {
                     </Text>
                   </View>
                 )}
+
+                {/* Spacer at bottom for safe scroll */}
+                <View style={{ height: 20 }} />
               </ScrollView>
             )}
 
             <TouchableOpacity
-              style={[styles.cancelBtn, { marginTop: 16 }]}
+              style={[styles.cancelBtn, { marginTop: 12 }]}
               onPress={() => setDetailItem(null)}
             >
               <Text style={styles.cancelBtnText}>Đóng</Text>
@@ -528,13 +661,13 @@ const styles = StyleSheet.create({
   },
   emptySub: { fontSize: 13, color: T.colors.textMuted, textAlign: "center" },
 
-  // Modal
+  // Modal / Sheets
   overlay: { flex: 1, justifyContent: "flex-end" },
   overlayBg: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(26,67,50,0.45)",
   },
-  sheet: {
+  modalSheet: {
     backgroundColor: T.colors.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -588,6 +721,33 @@ const styles = StyleSheet.create({
   cancelBtnText: { color: T.colors.textMid, fontWeight: "600", fontSize: 14 },
 
   // Detail sheet
+  statusRow: {
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  statusBadgeLg: {
+    borderRadius: T.radius.full,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderWidth: 1.5,
+    alignSelf: "center",
+  },
+  statusBadgeLgText: {
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+
+  detailSection: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: T.colors.textMuted,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+
   detailRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -604,15 +764,7 @@ const styles = StyleSheet.create({
     textAlign: "right",
     flex: 1,
   },
-  detailSection: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: T.colors.textMuted,
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-    marginTop: 16,
-    marginBottom: 8,
-  },
+
   itemRow: {
     flexDirection: "row",
     justifyContent: "space-between",

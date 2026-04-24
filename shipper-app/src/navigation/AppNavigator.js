@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import LoginScreen from "../screens/LoginScreen";
 import AvailableOrdersScreen from "../screens/AvailableOrdersScreen";
 import ActiveDeliveriesScreen from "../screens/ActiveDeliveriesScreen";
+import MapScreen from "../screens/MapScreen";
 import ScannerScreen from "../screens/ScannerScreen";
 import T from "../theme";
 
@@ -72,6 +73,14 @@ function MainTabs() {
         options={{
           tabBarLabel: "Đang giao",
           tabBarIcon: ({ focused }) => <TabIcon emoji="🚚" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="Map"
+        component={MapScreen}
+        options={{
+          tabBarLabel: "Bản đồ",
+          tabBarIcon: ({ focused }) => <TabIcon emoji="🗺️" focused={focused} />,
         }}
       />
     </Tab.Navigator>

@@ -1,0 +1,369 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   Kitchen Inventory — Custom table with expand-to-detail rows
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Alert banner ─────────────────────────────────────────────────────────────── */
+.inv-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 500;
+  animation: inv-fadeIn 300ms ease;
+}
+.inv-alert--danger {
+  background: var(--danger-bg, rgba(220, 38, 38, 0.08));
+  border: 1px solid var(--danger, #dc2626);
+  color: var(--danger, #dc2626);
+}
+
+/* ── Table wrapper ────────────────────────────────────────────────────────────── */
+.inv-table-wrapper {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.inv-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.inv-table thead th {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  background: var(--surface-hover);
+  border-bottom: 1px solid var(--surface-border);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.inv-table tbody td {
+  padding: 10px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--surface-border);
+  vertical-align: middle;
+}
+
+/* ── Row states ───────────────────────────────────────────────────────────────── */
+.inv-row {
+  transition: background 150ms ease;
+}
+.inv-row:hover {
+  background: var(--surface-hover);
+}
+.inv-row--expanded {
+  background: var(--primary-bg, rgba(45, 106, 79, 0.05));
+}
+.inv-row--expanded:hover {
+  background: var(--primary-bg, rgba(45, 106, 79, 0.08));
+}
+.inv-row--warning {
+  border-left: 3px solid var(--danger, #dc2626);
+}
+.inv-row--muted {
+  opacity: 0.65;
+}
+
+/* ── Expand icon ──────────────────────────────────────────────────────────────── */
+.inv-expand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text-muted);
+  transition: all 200ms ease;
+}
+.inv-expand-icon--open {
+  color: var(--primary);
+  background: var(--primary-bg, rgba(45, 106, 79, 0.1));
+}
+.inv-row:hover .inv-expand-icon {
+  color: var(--primary);
+}
+
+/* ── Batch count chip ────────────────────────────────────────────────────────── */
+.inv-batch-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+
+/* ── Expanded batch panel ─────────────────────────────────────────────────────── */
+.inv-expand-row td {
+  background: var(--surface-hover, #f8f4d8) !important;
+  border-bottom: 2px solid var(--surface-border);
+}
+
+.inv-batch-panel {
+  padding: 12px 16px 16px;
+  animation: inv-slideDown 250ms ease;
+}
+
+.inv-batch-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--surface-border);
+}
+
+.inv-batch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 10px;
+}
+
+/* ── Individual batch card ────────────────────────────────────────────────────── */
+.inv-batch-card {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md, 10px);
+  overflow: hidden;
+  transition: box-shadow 200ms ease, border-color 200ms ease;
+}
+.inv-batch-card:hover {
+  border-color: var(--primary-light, #52b788);
+  box-shadow: 0 2px 8px rgba(45, 106, 79, 0.08);
+}
+
+.inv-batch-card__top {
+  padding: 10px 14px;
+  background: var(--surface-hover);
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.inv-batch-card__id {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.inv-batch-card__id .font-mono {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.inv-batch-card__body {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inv-batch-card__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.inv-batch-card__label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* ── View detail button ──────────────────────────────────────────────────────── */
+.inv-view-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm, 6px);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.inv-view-btn:hover {
+  background: var(--primary-bg, rgba(45, 106, 79, 0.1));
+  color: var(--primary);
+}
+
+/* ── Loading & empty ─────────────────────────────────────────────────────────── */
+.inv-loading {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.inv-empty {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Pagination ──────────────────────────────────────────────────────────────── */
+.inv-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.inv-pagination__info {
+  font-size: 12px;
+}
+
+.inv-pagination__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inv-pagination__page {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.inv-pagination__btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--surface-border);
+  background: var(--surface-card);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.inv-pagination__btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--primary-light, #52b788);
+}
+.inv-pagination__btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ── Drawer helpers ──────────────────────────────────────────────────────────── */
+.inv-drawer-section-title {
+  font-weight: 600;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.inv-drawer-info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inv-drawer-info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.inv-drawer-info-label {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.inv-drawer-info-value {
+  text-align: right;
+  font-weight: 500;
+}
+
+.inv-drawer-batch-card {
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--surface-border);
+  transition: border-color 200ms ease;
+}
+.inv-drawer-batch-card:hover {
+  border-color: var(--primary-light, #52b788);
+}
+
+.inv-drawer-batch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.inv-drawer-batch-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.inv-drawer-detail-label {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* ── Animations ──────────────────────────────────────────────────────────────── */
+@keyframes inv-fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes inv-slideDown {
+  from { opacity: 0; max-height: 0; }
+  to   { opacity: 1; max-height: 800px; }
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .inv-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .inv-table {
+    min-width: 700px;
+  }
+  .inv-batch-grid {
+    grid-template-columns: 1fr;
+  }
+  .inv-pagination {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+}
