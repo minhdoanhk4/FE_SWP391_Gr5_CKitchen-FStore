@@ -8,14 +8,17 @@
     "ios": {
       "supportsTablet": false,
       "infoPlist": {
-        "NSCameraUsageDescription": "Cần quyền camera để quét mã QR đơn hàng"
+        "NSCameraUsageDescription": "Cần quyền camera để quét mã QR đơn hàng",
+        "NSLocationWhenInUseUsageDescription": "Cần vị trí để tính khoảng cách tới điểm giao hàng"
       }
     },
     "android": {
       "package": "com.ckitchen.shipper",
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "plugins": [
@@ -23,6 +26,12 @@
         "expo-camera",
         {
           "cameraPermission": "Cần quyền camera để quét mã QR đơn hàng"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Cần vị trí để tính khoảng cách tới điểm giao hàng"
         }
       ]
     ],

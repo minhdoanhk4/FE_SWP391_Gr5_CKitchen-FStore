@@ -506,7 +506,7 @@ export default function ProductionPlan() {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={saving || (recipeCheck && !recipeCheck.sufficient)}
+              disabled={saving || (recipeCheck && !recipeCheck.canProduce && !recipeCheck.sufficient)}
             >
               {saving ? "Đang tạo..." : "Tạo kế hoạch"}
             </Button>
@@ -574,60 +574,92 @@ export default function ProductionPlan() {
             error={errors.quantity}
           />
 
-          {/* Recipe check result */}
+          {/* ── Live Recipe Check Panel ───────────────────────────────── */}
           {checkingRecipe && (
-            <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
-              Đang kiểm tra nguyên liệu...
-            </p>
-          )}
-          {!checkingRecipe && recipeCheck && (
-            <div
-              style={{
-                padding: "10px 14px",
-                borderRadius: "var(--radius-md)",
-                fontSize: "13px",
-                background: recipeCheck.sufficient
-                  ? "var(--success-bg)"
-                  : "var(--danger-bg)",
-                color: recipeCheck.sufficient
-                  ? "var(--success)"
-                  : "var(--danger)",
-                display: "flex",
-                gap: "6px",
-                alignItems: "flex-start",
-              }}
-            >
-              {recipeCheck.sufficient ? (
-                <>
-                  <CheckCircle
-                    size={14}
-                    style={{ marginTop: 2, flexShrink: 0 }}
-                  />{" "}
-                  Đủ nguyên liệu để sản xuất{" "}
-                  {selectedProduct?.name || form.productId}
-                </>
-              ) : (
-                <>
-                  <AlertTriangle
-                    size={14}
-                    style={{ marginTop: 2, flexShrink: 0 }}
-                  />
-                  <span>
-                    Không đủ nguyên liệu.
-                    {recipeCheck.missing?.length > 0 && (
-                      <>
-                        {" "}
-                        Thiếu:{" "}
-                        {recipeCheck.missing
-                          .map((m) => m.ingredientName || m.ingredientId)
-                          .join(", ")}
-                      </>
-                    )}
-                  </span>
-                </>
-              )}
+            <div className="recipe-check-loading">
+              <div className="recipe-check-spinner" />
+              <span>Đang kiểm tra nguyên liệu trong kho...</span>
             </div>
           )}
+          {!checkingRecipe && recipeCheck && (() => {
+            const canProduce = recipeCheck.canProduce ?? recipeCheck.sufficient;
+            const ingredients = recipeCheck.ingredients || recipeCheck.missing || [];
+            const suffCount = ingredients.filter((i) => i.isSufficient ?? i.sufficient).length;
+            const totalCount = ingredients.length;
+
+            return (
+              <div className="recipe-panel" data-status={canProduce ? "ok" : "fail"}>
+                {/* Summary header */}
+                <div className="recipe-panel__header">
+                  <div className="recipe-panel__status">
+                    {canProduce ? (
+                      <CheckCircle size={18} style={{ color: "var(--success)" }} />
+                    ) : (
+                      <AlertTriangle size={18} style={{ color: "var(--danger)" }} />
+                    )}
+                    <div>
+                      <strong style={{ fontSize: "14px" }}>
+                        {canProduce ? "Đủ nguyên liệu ✓" : "Không đủ nguyên liệu"}
+                      </strong>
+                      <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
+                        {recipeCheck.productName || selectedProduct?.name || form.productId}
+                        {" · "}{form.quantity} phần
+                        {" · "}{suffCount}/{totalCount} nguyên liệu đạt
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ingredient detail list */}
+                {ingredients.length > 0 && (
+                  <div className="recipe-panel__list">
+                    {ingredients.map((ing) => {
+                      const ok = ing.isSufficient ?? ing.sufficient ?? true;
+                      const required = Number(ing.requiredQuantity ?? 0);
+                      const available = Number(ing.availableQuantity ?? 0);
+                      const shortage = Number(ing.shortage ?? 0);
+                      const pct = required > 0 ? Math.min((available / required) * 100, 100) : 100;
+
+                      return (
+                        <div
+                          key={ing.ingredientId}
+                          className={`recipe-item ${!ok ? "recipe-item--fail" : ""}`}
+                        >
+                          <div className="recipe-item__top">
+                            <span className="recipe-item__name">
+                              {ok ? "✅" : "❌"} {ing.ingredientName || ing.ingredientId}
+                            </span>
+                            <span className="recipe-item__unit" style={{ color: ok ? "var(--success)" : "var(--danger)" }}>
+                              {available.toLocaleString("vi-VN", { maximumFractionDigits: 1 })} / {required.toLocaleString("vi-VN", { maximumFractionDigits: 1 })} {ing.unit || ""}
+                            </span>
+                          </div>
+                          {/* Progress bar */}
+                          <div className="recipe-item__bar-track">
+                            <div
+                              className="recipe-item__bar-fill"
+                              style={{
+                                width: `${pct}%`,
+                                background: ok
+                                  ? "var(--success)"
+                                  : pct > 50
+                                    ? "var(--warning)"
+                                    : "var(--danger)",
+                              }}
+                            />
+                          </div>
+                          {!ok && shortage > 0 && (
+                            <div className="recipe-item__shortage">
+                              Thiếu: {shortage.toLocaleString("vi-VN", { maximumFractionDigits: 2 })} {ing.unit || ""}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           <div
             style={{

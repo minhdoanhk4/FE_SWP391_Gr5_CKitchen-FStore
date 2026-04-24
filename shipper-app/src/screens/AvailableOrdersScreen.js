@@ -11,6 +11,7 @@ import {
   StatusBar,
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import * as Location from "expo-location";
 import { useAuth } from "../context/AuthContext";
 import shipperService from "../services/shipperService";
 import T from "../theme";
@@ -30,26 +31,46 @@ export default function AvailableOrdersScreen() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [coords, setCoords] = useState(null);
 
   const loadingRef = useRef(false);
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (loadingRef.current) return;
-    loadingRef.current = true;
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+  const getCoords = useCallback(async () => {
     try {
-      const data = await shipperService.getAvailableOrders();
-      setOrders(data?.content ?? data ?? []);
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Lỗi", "Không thể tải danh sách đơn hàng");
-    } finally {
-      loadingRef.current = false;
-      setLoading(false);
-      setRefreshing(false);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return null;
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const c = { lat: loc.coords.latitude, lon: loc.coords.longitude };
+      setCoords(c);
+      return c;
+    } catch {
+      return null;
     }
   }, []);
+
+  const load = useCallback(
+    async (isRefresh = false) => {
+      if (loadingRef.current) return;
+      loadingRef.current = true;
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+      try {
+        const c = coords ?? (await getCoords());
+        const data = await shipperService.getAvailableOrders(c ?? {});
+        setOrders(data?.content ?? data ?? []);
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Lỗi", "Không thể tải danh sách đơn hàng");
+      } finally {
+        loadingRef.current = false;
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [coords, getCoords],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -64,8 +85,17 @@ export default function AvailableOrdersScreen() {
         {/* Header row */}
         <View style={styles.cardHeader}>
           <Text style={styles.orderId}>#{item.id || item.orderId}</Text>
-          <View style={styles.waitBadge}>
-            <Text style={styles.waitBadgeText}>● Chờ nhận</Text>
+          <View style={styles.badgeRow}>
+            {item.distance != null && (
+              <View style={styles.distanceBadge}>
+                <Text style={styles.distanceBadgeText}>
+                  📍 {Number(item.distance).toFixed(1)} km
+                </Text>
+              </View>
+            )}
+            <View style={styles.waitBadge}>
+              <Text style={styles.waitBadgeText}>● Chờ nhận</Text>
+            </View>
           </View>
         </View>
 
@@ -244,6 +274,20 @@ const styles = StyleSheet.create({
     borderColor: T.colors.primaryLighter,
   },
   waitBadgeText: { color: T.colors.primary, fontSize: 11, fontWeight: "700" },
+  badgeRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  distanceBadge: {
+    backgroundColor: T.colors.accentBg,
+    borderRadius: T.radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: "rgba(231,111,81,0.22)",
+  },
+  distanceBadgeText: {
+    color: T.colors.accent,
+    fontSize: 11,
+    fontWeight: "700",
+  },
 
   metaRow: { flexDirection: "row", alignItems: "center", marginBottom: 5 },
   metaIcon: { fontSize: 13, marginRight: 8, width: 18 },

@@ -1,8 +1,16 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, ChefHat } from "lucide-react";
+import { Plus, Edit } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
-import { DataTable, Badge, Button, Modal, Input, Select, Card } from "../../components/ui";
+import {
+  DataTable,
+  Badge,
+  Button,
+  Modal,
+  Input,
+  Select,
+  Card,
+} from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import adminService from "../../services/adminService";
 
@@ -19,6 +27,7 @@ export default function KitchenManagement() {
   const [showDetail, setShowDetail] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [viewItem, setViewItem] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [form, setForm] = useState({
     id: "",
     name: "",
@@ -81,9 +90,18 @@ export default function KitchenManagement() {
     setShowModal(true);
   };
 
-  const handleViewDetails = (item) => {
-    setViewItem(item);
+  const handleViewDetails = async (item) => {
+    setViewItem(item); // show modal immediately with row data
     setShowDetail(true);
+    setDetailLoading(true);
+    try {
+      const fresh = await adminService.catalog.getKitchenById(item.id);
+      setViewItem(fresh);
+    } catch {
+      toast.error("Không thể tải chi tiết bếp");
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const validate = () => {
@@ -138,15 +156,16 @@ export default function KitchenManagement() {
       header: "Thao tác",
       width: "80px",
       render: (row) => (
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          iconOnly 
-          icon={Edit} 
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          icon={Edit}
+          title="Sửa"
           onClick={(e) => {
             e.stopPropagation();
             handleEdit(row);
-          }} 
+          }}
         />
       ),
     },
@@ -157,7 +176,9 @@ export default function KitchenManagement() {
       title="Quản lý Bếp Trung Tâm"
       subtitle="Hệ thống cơ sở sản xuất tập trung (Click hàng để xem chi tiết)"
       actions={
-        <Button icon={Plus} onClick={handleOpenAdd}>Thêm bếp mới</Button>
+        <Button icon={Plus} onClick={handleOpenAdd}>
+          Thêm bếp mới
+        </Button>
       }
     >
       <Card>
@@ -177,8 +198,12 @@ export default function KitchenManagement() {
         size="lg"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setShowModal(false)}>Hủy</Button>
-            <Button onClick={handleSave}>{editItem ? "Lưu thay đổi" : "Tạo mới"}</Button>
+            <Button variant="secondary" onClick={() => setShowModal(false)}>
+              Hủy
+            </Button>
+            <Button onClick={handleSave}>
+              {editItem ? "Lưu thay đổi" : "Tạo mới"}
+            </Button>
           </>
         }
       >
@@ -201,22 +226,28 @@ export default function KitchenManagement() {
             label="Địa chỉ"
             required
             value={form.address}
-            onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, address: e.target.value }))
+            }
             placeholder="Địa chỉ chi tiết..."
             error={errors.address}
           />
-          
+
           <div className="grid grid--2">
             <Input
               label="Số điện thoại"
               value={form.phone}
-              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, phone: e.target.value }))
+              }
             />
             <Input
               label="Công suất (phần/ngày)"
               type="number"
               value={form.capacity}
-              onChange={(e) => setForm((f) => ({ ...f, capacity: parseInt(e.target.value) }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, capacity: parseInt(e.target.value) }))
+              }
             />
           </div>
 
@@ -232,47 +263,83 @@ export default function KitchenManagement() {
       {/* Detail View Modal */}
       <Modal
         isOpen={showDetail}
-        onClose={() => setShowDetail(false)}
+        onClose={() => {
+          setShowDetail(false);
+          setViewItem(null);
+        }}
         title={`Chi tiết bếp: ${viewItem?.name}`}
         size="lg"
       >
+        {detailLoading && (
+          <p style={{ color: "var(--text-muted)", padding: "8px 0 16px" }}>
+            Đang tải dữ liệu mới nhất...
+          </p>
+        )}
         {viewItem && (
           <div style={{ display: "grid", gap: "24px" }}>
             <div className="grid grid--2">
-               <div>
-                  <label style={{ fontSize: "12px", color: "var(--text-muted)" }}>Mã bếp</label>
-                  <p style={{ fontWeight: 600 }}>{viewItem.id}</p>
-               </div>
-               <div>
-                  <label style={{ fontSize: "12px", color: "var(--text-muted)" }}>Trạng thái</label>
-                  <p><Badge variant={viewItem.status === "ACTIVE" ? "success" : "warning"}>{viewItem.status}</Badge></p>
-               </div>
-               <div>
-                  <label style={{ fontSize: "12px", color: "var(--text-muted)" }}>Địa chỉ</label>
-                  <p>{viewItem.address}</p>
-               </div>
-               <div>
-                  <label style={{ fontSize: "12px", color: "var(--text-muted)" }}>Công suất</label>
-                  <p>{viewItem.capacity} phần/ngày</p>
-               </div>
-               <div>
-                  <label style={{ fontSize: "12px", color: "var(--text-muted)" }}>Liên hệ</label>
-                  <p>{viewItem.phone || "N/A"}</p>
-               </div>
+              <div>
+                <label style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                  Mã bếp
+                </label>
+                <p style={{ fontWeight: 600 }}>{viewItem.id}</p>
+              </div>
+              <div>
+                <label style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                  Trạng thái
+                </label>
+                <p>
+                  <Badge
+                    variant={
+                      viewItem.status === "ACTIVE" ? "success" : "warning"
+                    }
+                  >
+                    {viewItem.status}
+                  </Badge>
+                </p>
+              </div>
+              <div>
+                <label style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                  Địa chỉ
+                </label>
+                <p>{viewItem.address}</p>
+              </div>
+              <div>
+                <label style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                  Công suất
+                </label>
+                <p>{viewItem.capacity} phần/ngày</p>
+              </div>
+              <div>
+                <label style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                  Liên hệ
+                </label>
+                <p>{viewItem.phone || "N/A"}</p>
+              </div>
             </div>
-            
-            <div style={{ borderTop: "1px solid var(--surface-border)", paddingTop: "16px" }}>
-               <h4 style={{ marginBottom: "12px" }}>Kế hoạch sản xuất & Lịch sử</h4>
-               <div style={{ 
-                 padding: "40px", 
-                 textAlign: "center", 
-                 background: "var(--surface-sub)", 
-                 borderRadius: "var(--radius-md)" 
-               }}>
-                  <p style={{ color: "var(--text-muted)" }}>
-                    Dữ liệu hoạt động chi tiết của bếp đang được đồng bộ từ Backend...
-                  </p>
-               </div>
+
+            <div
+              style={{
+                borderTop: "1px solid var(--surface-border)",
+                paddingTop: "16px",
+              }}
+            >
+              <h4 style={{ marginBottom: "12px" }}>
+                Kế hoạch sản xuất & Lịch sử
+              </h4>
+              <div
+                style={{
+                  padding: "40px",
+                  textAlign: "center",
+                  background: "var(--surface-sub)",
+                  borderRadius: "var(--radius-md)",
+                }}
+              >
+                <p style={{ color: "var(--text-muted)" }}>
+                  Dữ liệu hoạt động chi tiết của bếp đang được đồng bộ từ
+                  Backend...
+                </p>
+              </div>
             </div>
           </div>
         )}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { RotateCcw, Search, Pencil } from "lucide-react";
+import { RotateCcw, Search, Edit } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
 import { DataTable, Badge, Button, Drawer, Modal } from "../../components/ui";
@@ -10,8 +10,20 @@ const PAGE_SIZE = 20;
 
 const STATUS_CONFIG = {
   AVAILABLE: { label: "Còn hàng", variant: "success" },
+  PART_DIST: { label: "Phân phối một phần", variant: "warning" },
+  DISTRIBUTED: { label: "Đã phân phối", variant: "primary" },
   DEPLETED: { label: "Hết hàng", variant: "neutral" },
+  EXPIRED: { label: "Hết hạn", variant: "danger" },
 };
+
+const STATUS_TABS = [
+  { value: "", label: "Tất cả" },
+  { value: "AVAILABLE", label: "Còn hàng" },
+  { value: "PART_DIST", label: "Phân phối một phần" },
+  { value: "DISTRIBUTED", label: "Đã phân phối" },
+  { value: "DEPLETED", label: "Hết hàng" },
+  { value: "EXPIRED", label: "Hết hạn" },
+];
 
 function formatDate(d) {
   if (!d) return "—";
@@ -190,7 +202,7 @@ function BatchDetailDrawer({ batchId, isOpen, onClose }) {
                       <span>
                         Đã dùng:{" "}
                         <strong>
-                          {usage.usedQuantity} {usage.unit || ""}
+                          {usage.quantityUsed ?? usage.usedQuantity} {usage.unit || ""}
                         </strong>
                       </span>
                       <span>Lô số: {usage.batchNo || "—"}</span>
@@ -244,7 +256,11 @@ export default function ProductBatches() {
   const [selectedBatchId, setSelectedBatchId] = useState(null);
 
   const [editTarget, setEditTarget] = useState(null);
-  const [editForm, setEditForm] = useState({ expiryDate: "", status: "", notes: "" });
+  const [editForm, setEditForm] = useState({
+    expiryDate: "",
+    status: "",
+    notes: "",
+  });
   const [editSaving, setEditSaving] = useState(false);
 
   const fetchBatches = useCallback(async () => {
@@ -371,19 +387,19 @@ export default function ProductBatches() {
           <Button
             variant="ghost"
             size="sm"
+            iconOnly
             icon={Search}
+            title="Truy vết nguồn gốc"
             onClick={() => setSelectedBatchId(r.id)}
-          >
-            Truy vết
-          </Button>
+          />
           <Button
             variant="ghost"
             size="sm"
-            icon={Pencil}
+            iconOnly
+            icon={Edit}
+            title="Sửa"
             onClick={() => openEdit(r)}
-          >
-            Sửa
-          </Button>
+          />
         </div>
       ),
     },
@@ -394,34 +410,43 @@ export default function ProductBatches() {
       title="Lô thành phẩm"
       subtitle="Danh sách các lô bánh đã sản xuất — click Truy vết để xem nguồn gốc nguyên liệu"
     >
-      {/* Filter row */}
+      {/* Status pill tabs */}
       <div
         style={{
           display: "flex",
           gap: "8px",
           marginBottom: "16px",
-          alignItems: "center",
+          flexWrap: "wrap",
         }}
       >
-        <select
-          style={{
-            padding: "7px 12px",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--border)",
-            background: "var(--surface)",
-            color: "var(--text-primary)",
-            fontSize: "14px",
-          }}
-          value={filterStatus}
-          onChange={(e) => {
-            setFilterStatus(e.target.value);
-            setPage(0);
-          }}
-        >
-          <option value="">Tất cả trạng thái</option>
-          <option value="AVAILABLE">Còn hàng</option>
-          <option value="DEPLETED">Hết hàng</option>
-        </select>
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => {
+              setFilterStatus(tab.value);
+              setPage(0);
+            }}
+            style={{
+              padding: "6px 16px",
+              borderRadius: "var(--radius-full)",
+              border: `1.5px solid ${filterStatus === tab.value ? "var(--primary)" : "var(--surface-border)"}`,
+              background:
+                filterStatus === tab.value
+                  ? "var(--primary-bg)"
+                  : "var(--surface-card)",
+              color:
+                filterStatus === tab.value
+                  ? "var(--primary)"
+                  : "var(--text-secondary)",
+              fontSize: "13px",
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "all 200ms ease",
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
         <Button
           variant="ghost"
           size="sm"
@@ -511,7 +536,10 @@ export default function ProductBatches() {
             >
               <option value="">-- Giữ nguyên --</option>
               <option value="AVAILABLE">Còn hàng</option>
+              <option value="PART_DIST">Phân phối một phần</option>
+              <option value="DISTRIBUTED">Đã phân phối</option>
               <option value="DEPLETED">Hết hàng</option>
+              <option value="EXPIRED">Hết hạn</option>
             </select>
           </div>
           <Input

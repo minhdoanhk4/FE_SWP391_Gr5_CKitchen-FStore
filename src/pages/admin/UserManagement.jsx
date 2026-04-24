@@ -3,9 +3,9 @@ import {
   Plus,
   Edit,
   Trash2,
-  Shield,
   User as UserIcon,
   LogOut,
+  Eye,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
@@ -28,6 +28,9 @@ export default function UserManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editUser, setEditUser] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [showDetail, setShowDetail] = useState(false);
+  const [viewUser, setViewUser] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [form, setForm] = useState({
     username: "",
     password: "",
@@ -208,6 +211,21 @@ export default function UserManagement() {
     }
   };
 
+  const handleViewDetails = async (row) => {
+    const id = row.userId || row.id;
+    setViewUser(row);
+    setShowDetail(true);
+    setDetailLoading(true);
+    try {
+      const fresh = await adminService.users.getById(id);
+      setViewUser(fresh);
+    } catch {
+      toast.error("Không thể tải chi tiết người dùng");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   const columns = [
     {
       header: "Người dùng",
@@ -267,6 +285,17 @@ export default function UserManagement() {
             variant="ghost"
             size="sm"
             iconOnly
+            icon={Eye}
+            title="Xem chi tiết"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewDetails(row);
+            }}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
             icon={Edit}
             title="Sửa"
             onClick={(e) => {
@@ -317,6 +346,7 @@ export default function UserManagement() {
         loading={loading}
         searchPlaceholder="Tìm theo tên, username, email..."
         toolbar={<Badge variant="primary">{users.length} người dùng</Badge>}
+        onRowClick={handleViewDetails}
       />
 
       <Modal
@@ -465,6 +495,131 @@ export default function UserManagement() {
           <strong>{confirmDelete?.fullName}</strong>? Hành động này không thể
           hoàn tác.
         </p>
+      </Modal>
+
+      {/* User Detail Modal */}
+      <Modal
+        isOpen={showDetail}
+        onClose={() => {
+          setShowDetail(false);
+          setViewUser(null);
+        }}
+        title="Chi tiết người dùng"
+        size="lg"
+      >
+        {detailLoading && (
+          <p style={{ color: "var(--text-muted)", paddingBottom: "16px" }}>
+            Đang tải...
+          </p>
+        )}
+        {viewUser && (
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "20px" }}
+          >
+            {/* Header: avatar + name */}
+            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+              <div
+                style={{
+                  width: "56px",
+                  height: "56px",
+                  borderRadius: "50%",
+                  backgroundColor: "var(--primary-light)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--primary)",
+                  flexShrink: 0,
+                }}
+              >
+                <UserIcon size={28} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: "18px" }}>
+                  {viewUser.fullName}
+                </div>
+                <div style={{ color: "var(--text-muted)", fontSize: "13px" }}>
+                  @{viewUser.username}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "16px",
+              }}
+            >
+              {[
+                ["Email", viewUser.email],
+                [
+                  "Mã người dùng",
+                  <span className="font-mono" style={{ fontSize: "12px" }}>
+                    {viewUser.userId || viewUser.id}
+                  </span>,
+                ],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--text-muted)",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    {label}
+                  </div>
+                  <div style={{ fontWeight: 500 }}>{value}</div>
+                </div>
+              ))}
+              <div>
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--text-muted)",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Vai trò
+                </div>
+                <Badge variant={ROLE_INFO[viewUser.role]?.color || "neutral"}>
+                  {ROLE_INFO[viewUser.role]?.label || viewUser.role}
+                </Badge>
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--text-muted)",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Trạng thái
+                </div>
+                <Badge
+                  variant={viewUser.status === "ACTIVE" ? "success" : "danger"}
+                  dot
+                >
+                  {viewUser.status === "ACTIVE" ? "Hoạt động" : "Vô hiệu"}
+                </Badge>
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--text-muted)",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Xác thực
+                </div>
+                <Badge variant={viewUser.verify ? "success" : "warning"} dot>
+                  {viewUser.verify ? "Đã xác thực" : "Chưa xác thực"}
+                </Badge>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
     </PageWrapper>
   );
