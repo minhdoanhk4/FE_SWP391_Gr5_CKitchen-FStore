@@ -7,10 +7,10 @@ import { useData } from "../../contexts/DataContext";
 import activityLogService from "../../services/activityLogService";
 
 const ACTION_COLORS = {
-  LOGIN: "success",
+  LOGIN_ATTEMPT: "primary",
+  LOGIN_SUCCESS: "success",
+  LOGIN_FAILED: "danger",
   LOGOUT: "neutral",
-  REGISTER: "primary",
-  FAILED_LOGIN: "danger",
   PASSWORD_RESET: "warning",
   FORCE_LOGOUT: "danger",
 };
@@ -78,69 +78,85 @@ export default function ActivityLogs() {
     },
     {
       header: "Người dùng",
-      accessor: "username",
+      accessor: "fullName",
       render: (r) => (
         <div>
-          <div style={{ fontWeight: 600 }}>{r.fullName ?? r.username}</div>
+          <div style={{ fontWeight: 600 }}>{r.fullName}</div>
           <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-            @{r.username}
+            ID: {r.userId}
           </div>
         </div>
       ),
     },
     {
       header: "Hành động",
-      accessor: "actionType",
+      accessor: "activityType",
       render: (r) => (
-        <Badge variant={ACTION_COLORS[r.actionType] ?? "neutral"}>
-          {r.actionType}
+        <Badge variant={ACTION_COLORS[r.activityType] ?? "neutral"}>
+          {r.activityType}
         </Badge>
       ),
     },
     {
       header: "Mô tả",
-      accessor: "description",
+      accessor: "details",
       render: (r) => (
         <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-          {r.description ?? r.message ?? "—"}
+          {r.details ?? "—"}
         </span>
       ),
     },
     {
-      header: "IP",
+      header: "IP / Vị trí",
       accessor: "ipAddress",
-      width: "130px",
+      width: "180px",
       render: (r) => (
-        <span className="font-mono" style={{ fontSize: "12px" }}>
-          {r.ipAddress ?? "—"}
+        <div>
+          <div className="font-mono" style={{ fontSize: "12px" }}>
+            {r.ipAddress ?? "—"}
+          </div>
+          <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+            {r.location ?? r.city ?? "—"}
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: "Thiết bị",
+      accessor: "deviceInfo",
+      render: (r) => (
+        <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+          {r.deviceInfo ?? r.browser ?? "—"}
         </span>
       ),
     },
     {
       header: "Thời gian",
-      accessor: "createdAt",
+      accessor: "timestamp",
       sortable: true,
       render: (r) => (
         <span style={{ fontSize: "13px" }}>
-          {formatDateTime(r.createdAt ?? r.timestamp)}
+          {formatDateTime(r.timestamp)}
         </span>
       ),
     },
     {
-      header: "",
-      width: "50px",
+      header: "Thao tác",
+      width: "80px",
       render: (row) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          iconOnly
-          icon={Trash2}
-          title="Xóa"
-          onClick={(e) => {
-            e.stopPropagation();
-            setConfirmDelete(row);
-          }}
-        />
+        <div style={{ display: "flex", gap: "8px" }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            icon={Trash2}
+            title="Xóa"
+            onClick={(e) => {
+              e.stopPropagation();
+              setConfirmDelete(row);
+            }}
+          />
+        </div>
       ),
     },
   ];

@@ -381,7 +381,7 @@ export default function ProductBatches() {
       },
     },
     {
-      header: "",
+      header: "Thao tác",
       render: (r) => (
         <div style={{ display: "flex", gap: "4px" }}>
           <Button

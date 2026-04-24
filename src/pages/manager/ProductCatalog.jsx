@@ -344,7 +344,7 @@ export default function ProductCatalog() {
       )
     },
     {
-      header: "",
+      header: "Thao tác",
       width: "48px",
       render: (r) =>
         r.imageUrl?.[0] ? (
@@ -441,7 +441,7 @@ export default function ProductCatalog() {
       },
     },
     {
-      header: "",
+      header: "Thao tác",
       width: "100px",
       render: (row) => (
         <div style={{ display: "flex", gap: "4px" }}>

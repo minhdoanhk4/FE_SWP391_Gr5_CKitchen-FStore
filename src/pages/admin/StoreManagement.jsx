@@ -193,15 +193,13 @@ export default function StoreManagement() {
         </Button>
       }
     >
-      <Card>
-        <DataTable
-          columns={columns}
-          data={stores}
-          loading={loading}
-          searchPlaceholder="Tìm cửa hàng..."
-          onRowClick={handleViewDetails}
-        />
-      </Card>
+      <DataTable
+        columns={columns}
+        data={stores}
+        loading={loading}
+        searchPlaceholder="Tìm cửa hàng..."
+        onRowClick={handleViewDetails}
+      />
 
       {/* Edit Modal */}
       <Modal

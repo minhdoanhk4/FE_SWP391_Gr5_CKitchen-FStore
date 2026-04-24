@@ -34,6 +34,8 @@ const ROUTE_LABELS = {
   receiving: "Nhận hàng",
   production: "Sản xuất",
   batches: "Lô sản xuất",
+  "product-batches": "Lô thành phẩm",
+  "ingredient-batches": "Lô nguyên liệu",
   delivery: "Giao hàng",
   issues: "Vấn đề phát sinh",
   products: "Sản phẩm",

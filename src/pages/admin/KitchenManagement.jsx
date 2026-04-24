@@ -181,15 +181,13 @@ export default function KitchenManagement() {
         </Button>
       }
     >
-      <Card>
-        <DataTable
-          columns={columns}
-          data={kitchens}
-          loading={loading}
-          searchPlaceholder="Tìm kiếm bếp..."
-          onRowClick={handleViewDetails}
-        />
-      </Card>
+      <DataTable
+        columns={columns}
+        data={kitchens}
+        loading={loading}
+        searchPlaceholder="Tìm kiếm bếp..."
+        onRowClick={handleViewDetails}
+      />
 
       <Modal
         isOpen={showModal}

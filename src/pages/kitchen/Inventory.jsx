@@ -1,15 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  ChevronDown,
-  ChevronRight,
   AlertTriangle,
   Package,
   Layers,
   Eye,
+  Search,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
-import { Badge, Button, Drawer } from "../../components/ui";
+import { Badge, Button, Drawer, Input } from "../../components/ui";
 import kitchenService from "../../services/kitchenService";
 import "./Inventory.css";
 
@@ -53,12 +52,6 @@ function daysUntilExpiry(date) {
   if (!date) return null;
   const diff = new Date(date) - new Date();
   return Math.ceil(diff / (24 * 60 * 60 * 1000));
-}
-
-function expiryColor(date, nearExpiry) {
-  if (isExpired(date)) return "var(--danger)";
-  if (isExpiringSoon(date) || nearExpiry) return "var(--warning)";
-  return "var(--text-primary)";
 }
 
 function StatusBadge({ status, expiryDate, nearExpiry, lowStock }) {
@@ -191,6 +184,98 @@ function SimplePagination({ page, totalPages, totalElements, pageSize, onPageCha
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// INGREDIENT DETAIL DRAWER
+// ═══════════════════════════════════════════════════════════════════════════════
+function IngredientDetailDrawer({ item, isOpen, onClose }) {
+  if (!item) return null;
+
+  const batches = item.batches || [];
+
+  return (
+    <Drawer isOpen={isOpen} onClose={onClose} title={item.ingredientName || "Chi tiết nguyên liệu"}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+        {/* Summary */}
+        <section>
+          <h4 className="inv-drawer-section-title">Thông tin tổng quan</h4>
+          <div className="inv-drawer-info-grid">
+            {[
+              ["Mã nguyên liệu", item.ingredientId],
+              ["Tên nguyên liệu", item.ingredientName],
+              ["Tồn kho", formatQty(item.totalQuantity, item.unit)],
+              ["Tối thiểu", formatQty(item.minStock, item.unit)],
+              ["Số lô", `${batches.length} lô`],
+              ["Trạng thái", item.lowStock ? "⚠️ Dưới mức tối thiểu" : "✅ Bình thường"],
+            ].map(([label, value]) => (
+              <div key={label} className="inv-drawer-info-row">
+                <span className="inv-drawer-info-label">{label}:</span>
+                <span className="inv-drawer-info-value">{value}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Batch list */}
+        {batches.length > 0 && (
+          <section>
+            <h4 className="inv-drawer-section-title">
+              Chi tiết lô ({batches.length})
+            </h4>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {batches.map((b) => (
+                <div key={b.id || b.batchNo} className="inv-drawer-batch-card">
+                  <div className="inv-drawer-batch-header">
+                    <span className="font-mono" style={{ fontSize: "12px", fontWeight: 600 }}>
+                      {b.batchNo || b.id}
+                    </span>
+                    <StatusBadge status={b.status} expiryDate={b.expiryDate} nearExpiry={b.nearExpiry} />
+                  </div>
+                  <div className="inv-drawer-batch-details">
+                    <div>
+                      <span className="inv-drawer-detail-label">SL ban đầu:</span>{" "}
+                      <strong>{formatQty(b.initialQuantity, b.unit || item.unit)}</strong>
+                    </div>
+                    <div>
+                      <span className="inv-drawer-detail-label">Còn lại:</span>{" "}
+                      <strong style={{ color: "var(--primary)" }}>
+                        {formatQty(b.remainingQuantity, b.unit || item.unit)}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="inv-drawer-detail-label">Hạn SD:</span>{" "}
+                      <ExpiryIndicator date={b.expiryDate} nearExpiry={b.nearExpiry} />
+                    </div>
+                    <div>
+                      <span className="inv-drawer-detail-label">Nhà cung cấp:</span>{" "}
+                      {b.supplier || "—"}
+                    </div>
+                    <div>
+                      <span className="inv-drawer-detail-label">Giá nhập:</span>{" "}
+                      {formatCurrency(b.importPrice)}
+                    </div>
+                    <div>
+                      <span className="inv-drawer-detail-label">Ngày nhập:</span>{" "}
+                      {formatDate(b.importDate)}
+                    </div>
+                    {b.notes && b.notes !== "null" && b.notes !== "string" && (
+                      <div>
+                        <span className="inv-drawer-detail-label">Ghi chú:</span>{" "}
+                        <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>
+                          {b.notes}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    </Drawer>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // PRODUCT DETAIL DRAWER
 // ═══════════════════════════════════════════════════════════════════════════════
 function ProductDetailDrawer({ item, isOpen, onClose }) {
@@ -259,6 +344,7 @@ function ProductDetailDrawer({ item, isOpen, onClose }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function KitchenInventory() {
   const [tab, setTab] = useState("ingredient"); // "ingredient" | "product"
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Ingredient tab state
   const [inventory, setInventory] = useState([]);
@@ -266,7 +352,7 @@ export default function KitchenInventory() {
   const [ingPage, setIngPage] = useState(0);
   const [ingTotalPages, setIngTotalPages] = useState(0);
   const [ingTotalElements, setIngTotalElements] = useState(0);
-  const [expandedIngIds, setExpandedIngIds] = useState(new Set());
+  const [drawerIngredient, setDrawerIngredient] = useState(null);
 
   // Product tab state
   const [productInventory, setProductInventory] = useState([]);
@@ -274,7 +360,6 @@ export default function KitchenInventory() {
   const [prodPage, setProdPage] = useState(0);
   const [prodTotalPages, setProdTotalPages] = useState(0);
   const [prodTotalElements, setProdTotalElements] = useState(0);
-  const [expandedProdIds, setExpandedProdIds] = useState(new Set());
   const [drawerProduct, setDrawerProduct] = useState(null);
 
   // ── Fetch ingredient inventory ─────────────────────────────────────────────
@@ -325,25 +410,6 @@ export default function KitchenInventory() {
     if (tab === "product") fetchProducts();
   }, [fetchProducts, tab]);
 
-  // ── Toggle expand ──────────────────────────────────────────────────────────
-  const toggleIngredient = (id) => {
-    setExpandedIngIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleProduct = (id) => {
-    setExpandedProdIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
   const lowStockCount = inventory.filter((i) => i.lowStock).length;
 
   // ═════════════════════════════════════════════════════════════════════════════
@@ -351,6 +417,16 @@ export default function KitchenInventory() {
     <PageWrapper
       title="Quản lý kho"
       subtitle="Xem tồn kho nguyên liệu và thành phẩm"
+      actions={
+        <div style={{ width: "250px" }}>
+           <Input 
+             placeholder={tab === "ingredient" ? "Tìm nguyên liệu..." : "Tìm thành phẩm..."}
+             value={searchTerm} 
+             onChange={(e) => setSearchTerm(e.target.value)} 
+             icon={Search}
+           />
+        </div>
+      }
     >
       {/* Tabs */}
       <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
@@ -386,7 +462,6 @@ export default function KitchenInventory() {
             <table className="inv-table">
               <thead>
                 <tr>
-                  <th style={{ width: "32px" }} />
                   <th>Nguyên liệu</th>
                   <th>Mã NL</th>
                   <th>Tồn kho</th>
@@ -394,6 +469,7 @@ export default function KitchenInventory() {
                   <th>Số lô</th>
                   <th>Hạn SD gần nhất</th>
                   <th>Trạng thái</th>
+                  <th style={{ width: "60px" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -416,8 +492,7 @@ export default function KitchenInventory() {
                     </td>
                   </tr>
                 ) : (
-                  inventory.map((item) => {
-                    const isExpanded = expandedIngIds.has(item.ingredientId || item.id);
+                  inventory.filter((i) => i.ingredientName?.toLowerCase().includes(searchTerm.toLowerCase()) || i.ingredientId?.toLowerCase().includes(searchTerm.toLowerCase())).map((item) => {
                     const batches = item.batches || [];
                     const earliestExpiry = batches
                       .filter((b) => b.expiryDate)
@@ -426,15 +501,59 @@ export default function KitchenInventory() {
                     const hasNearExpiry = batches.some((b) => b.nearExpiry);
 
                     return (
-                      <IngredientRow
+                      <tr
                         key={item.ingredientId || item.id}
-                        item={item}
-                        isExpanded={isExpanded}
-                        onToggle={() => toggleIngredient(item.ingredientId || item.id)}
-                        batches={batches}
-                        earliestExpiry={earliestExpiry}
-                        hasNearExpiry={hasNearExpiry}
-                      />
+                        className={`inv-row ${item.lowStock ? "inv-row--warning" : ""}`}
+                      >
+                        <td>
+                          <span style={{ fontWeight: 600 }}>{item.ingredientName}</span>
+                        </td>
+                        <td>
+                          <span className="font-mono" style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                            {item.ingredientId}
+                          </span>
+                        </td>
+                        <td>
+                          <span
+                            style={{
+                              fontWeight: 600,
+                              color: item.lowStock ? "var(--danger)" : "var(--text-primary)",
+                            }}
+                          >
+                            {formatQty(item.totalQuantity, item.unit)}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ color: "var(--text-secondary)" }}>
+                            {formatQty(item.minStock, item.unit)}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="inv-batch-count">
+                            <Layers size={12} />
+                            {batches.length} lô
+                          </span>
+                        </td>
+                        <td>
+                          <ExpiryIndicator date={earliestExpiry} nearExpiry={hasNearExpiry} />
+                        </td>
+                        <td>
+                          <StatusBadge
+                            expiryDate={earliestExpiry}
+                            nearExpiry={hasNearExpiry}
+                            lowStock={item.lowStock}
+                          />
+                        </td>
+                        <td>
+                          <button
+                            className="inv-view-btn"
+                            onClick={() => setDrawerIngredient(item)}
+                            title="Xem chi tiết đầy đủ"
+                          >
+                            <Eye size={16} />
+                          </button>
+                        </td>
+                      </tr>
                     );
                   })
                 )}
@@ -459,26 +578,25 @@ export default function KitchenInventory() {
             <table className="inv-table">
               <thead>
                 <tr>
-                  <th style={{ width: "32px" }} />
                   <th>Sản phẩm</th>
                   <th>Mã SP</th>
                   <th>Tồn kho</th>
                   <th>Số lô</th>
                   <th>Hạn SD gần nhất</th>
                   <th>Trạng thái</th>
-                  <th style={{ width: "40px" }} />
+                  <th style={{ width: "60px" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {prodLoading ? (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={7}>
                       <div className="inv-loading">Đang tải...</div>
                     </td>
                   </tr>
                 ) : productInventory.length === 0 ? (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={7}>
                       <div className="inv-empty">
                         <Layers size={40} style={{ opacity: 0.3 }} />
                         <p style={{ fontWeight: 600 }}>Không có thành phẩm</p>
@@ -489,8 +607,8 @@ export default function KitchenInventory() {
                     </td>
                   </tr>
                 ) : (
-                  productInventory.map((item) => {
-                    const isExpanded = expandedProdIds.has(item.productId);
+                  productInventory.filter((i) => i.productName?.toLowerCase().includes(searchTerm.toLowerCase()) || i.productId?.toLowerCase().includes(searchTerm.toLowerCase())).map((item) => {
+                    const totalQty = item.totalRemainingQuantity ?? 0;
                     const batches = item.batches || [];
                     const earliestExpiry = batches
                       .filter((b) => b.expiryDate)
@@ -498,15 +616,66 @@ export default function KitchenInventory() {
                       ?.expiryDate;
 
                     return (
-                      <ProductRow
+                      <tr
                         key={item.productId}
-                        item={item}
-                        isExpanded={isExpanded}
-                        onToggle={() => toggleProduct(item.productId)}
-                        batches={batches}
-                        earliestExpiry={earliestExpiry}
-                        onViewDetail={() => setDrawerProduct(item)}
-                      />
+                        className={`inv-row ${totalQty === 0 ? "inv-row--muted" : ""}`}
+                      >
+                        <td>
+                          <span style={{ fontWeight: 600 }}>{item.productName}</span>
+                        </td>
+                        <td>
+                          <span className="font-mono" style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                            {item.productId}
+                          </span>
+                        </td>
+                        <td>
+                          <span
+                            style={{
+                              fontWeight: 600,
+                              color: totalQty === 0 ? "var(--danger)" : "var(--text-primary)",
+                            }}
+                          >
+                            {formatQty(totalQty, item.unit || "phần")}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="inv-batch-count">
+                            <Layers size={12} />
+                            {batches.length} lô
+                          </span>
+                        </td>
+                        <td>
+                          <ExpiryIndicator date={earliestExpiry} />
+                        </td>
+                        <td>
+                          {totalQty === 0 ? (
+                            <Badge variant="neutral" dot>
+                              Hết hàng
+                            </Badge>
+                          ) : isExpired(earliestExpiry) ? (
+                            <Badge variant="danger" dot>
+                              Hết hạn
+                            </Badge>
+                          ) : isExpiringSoon(earliestExpiry) ? (
+                            <Badge variant="warning" dot>
+                              Sắp hết hạn
+                            </Badge>
+                          ) : (
+                            <Badge variant="success" dot>
+                              Có hàng
+                            </Badge>
+                          )}
+                        </td>
+                        <td>
+                          <button
+                            className="inv-view-btn"
+                            onClick={() => setDrawerProduct(item)}
+                            title="Xem chi tiết đầy đủ"
+                          >
+                            <Eye size={16} />
+                          </button>
+                        </td>
+                      </tr>
                     );
                   })
                 )}
@@ -524,6 +693,13 @@ export default function KitchenInventory() {
         </>
       )}
 
+      {/* Ingredient detail drawer */}
+      <IngredientDetailDrawer
+        item={drawerIngredient}
+        isOpen={!!drawerIngredient}
+        onClose={() => setDrawerIngredient(null)}
+      />
+
       {/* Product detail drawer */}
       <ProductDetailDrawer
         item={drawerProduct}
@@ -531,246 +707,5 @@ export default function KitchenInventory() {
         onClose={() => setDrawerProduct(null)}
       />
     </PageWrapper>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// INGREDIENT ROW (with expandable batch details)
-// ═══════════════════════════════════════════════════════════════════════════════
-function IngredientRow({ item, isExpanded, onToggle, batches, earliestExpiry, hasNearExpiry }) {
-  return (
-    <>
-      <tr
-        className={`inv-row ${isExpanded ? "inv-row--expanded" : ""} ${item.lowStock ? "inv-row--warning" : ""}`}
-        onClick={onToggle}
-        style={{ cursor: "pointer" }}
-      >
-        <td>
-          <span className={`inv-expand-icon ${isExpanded ? "inv-expand-icon--open" : ""}`}>
-            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          </span>
-        </td>
-        <td>
-          <span style={{ fontWeight: 600 }}>{item.ingredientName}</span>
-        </td>
-        <td>
-          <span className="font-mono" style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-            {item.ingredientId}
-          </span>
-        </td>
-        <td>
-          <span
-            style={{
-              fontWeight: 600,
-              color: item.lowStock ? "var(--danger)" : "var(--text-primary)",
-            }}
-          >
-            {formatQty(item.totalQuantity, item.unit)}
-          </span>
-        </td>
-        <td>
-          <span style={{ color: "var(--text-secondary)" }}>
-            {formatQty(item.minStock, item.unit)}
-          </span>
-        </td>
-        <td>
-          <span className="inv-batch-count">
-            <Layers size={12} />
-            {batches.length} lô
-          </span>
-        </td>
-        <td>
-          <ExpiryIndicator date={earliestExpiry} nearExpiry={hasNearExpiry} />
-        </td>
-        <td>
-          <StatusBadge
-            expiryDate={earliestExpiry}
-            nearExpiry={hasNearExpiry}
-            lowStock={item.lowStock}
-          />
-        </td>
-      </tr>
-
-      {/* Expanded batch detail rows */}
-      {isExpanded && batches.length > 0 && (
-        <tr className="inv-expand-row">
-          <td colSpan={8} style={{ padding: 0 }}>
-            <div className="inv-batch-panel">
-              <div className="inv-batch-panel__header">
-                <Layers size={14} />
-                Chi tiết {batches.length} lô — {item.ingredientName}
-              </div>
-              <div className="inv-batch-grid">
-                {batches.map((b) => (
-                  <div key={b.id} className="inv-batch-card">
-                    <div className="inv-batch-card__top">
-                      <div className="inv-batch-card__id">
-                        <span className="font-mono">{b.batchNo || b.id}</span>
-                        <StatusBadge status={b.status} expiryDate={b.expiryDate} nearExpiry={b.nearExpiry} />
-                      </div>
-                    </div>
-                    <div className="inv-batch-card__body">
-                      <div className="inv-batch-card__row">
-                        <span className="inv-batch-card__label">SL ban đầu</span>
-                        <span>{formatQty(b.initialQuantity, b.unit)}</span>
-                      </div>
-                      <div className="inv-batch-card__row">
-                        <span className="inv-batch-card__label">Còn lại</span>
-                        <span style={{ fontWeight: 600, color: "var(--primary)" }}>
-                          {formatQty(b.remainingQuantity, b.unit)}
-                        </span>
-                      </div>
-                      <div className="inv-batch-card__row">
-                        <span className="inv-batch-card__label">Hạn SD</span>
-                        <ExpiryIndicator date={b.expiryDate} nearExpiry={b.nearExpiry} />
-                      </div>
-                      <div className="inv-batch-card__row">
-                        <span className="inv-batch-card__label">Nhà cung cấp</span>
-                        <span>{b.supplier || "—"}</span>
-                      </div>
-                      <div className="inv-batch-card__row">
-                        <span className="inv-batch-card__label">Giá nhập</span>
-                        <span>{formatCurrency(b.importPrice)}</span>
-                      </div>
-                      <div className="inv-batch-card__row">
-                        <span className="inv-batch-card__label">Ngày nhập</span>
-                        <span>{formatDate(b.importDate)}</span>
-                      </div>
-                      {b.notes && b.notes !== "null" && b.notes !== "string" && (
-                        <div className="inv-batch-card__row">
-                          <span className="inv-batch-card__label">Ghi chú</span>
-                          <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>
-                            {b.notes}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// PRODUCT ROW (with expandable batch details)
-// ═══════════════════════════════════════════════════════════════════════════════
-function ProductRow({ item, isExpanded, onToggle, batches, earliestExpiry, onViewDetail }) {
-  const totalQty = item.totalRemainingQuantity ?? 0;
-
-  return (
-    <>
-      <tr
-        className={`inv-row ${isExpanded ? "inv-row--expanded" : ""} ${totalQty === 0 ? "inv-row--muted" : ""}`}
-        onClick={onToggle}
-        style={{ cursor: "pointer" }}
-      >
-        <td>
-          <span className={`inv-expand-icon ${isExpanded ? "inv-expand-icon--open" : ""}`}>
-            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          </span>
-        </td>
-        <td>
-          <span style={{ fontWeight: 600 }}>{item.productName}</span>
-        </td>
-        <td>
-          <span className="font-mono" style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-            {item.productId}
-          </span>
-        </td>
-        <td>
-          <span
-            style={{
-              fontWeight: 600,
-              color: totalQty === 0 ? "var(--danger)" : "var(--text-primary)",
-            }}
-          >
-            {formatQty(totalQty, item.unit || "phần")}
-          </span>
-        </td>
-        <td>
-          <span className="inv-batch-count">
-            <Layers size={12} />
-            {batches.length} lô
-          </span>
-        </td>
-        <td>
-          <ExpiryIndicator date={earliestExpiry} />
-        </td>
-        <td>
-          {totalQty === 0 ? (
-            <Badge variant="neutral" dot>
-              Hết hàng
-            </Badge>
-          ) : isExpired(earliestExpiry) ? (
-            <Badge variant="danger" dot>
-              Hết hạn
-            </Badge>
-          ) : isExpiringSoon(earliestExpiry) ? (
-            <Badge variant="warning" dot>
-              Sắp hết hạn
-            </Badge>
-          ) : (
-            <Badge variant="success" dot>
-              Có hàng
-            </Badge>
-          )}
-        </td>
-        <td>
-          <button
-            className="inv-view-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              onViewDetail();
-            }}
-            title="Xem chi tiết đầy đủ"
-          >
-            <Eye size={16} />
-          </button>
-        </td>
-      </tr>
-
-      {/* Expanded batch detail rows */}
-      {isExpanded && batches.length > 0 && (
-        <tr className="inv-expand-row">
-          <td colSpan={8} style={{ padding: 0 }}>
-            <div className="inv-batch-panel">
-              <div className="inv-batch-panel__header">
-                <Layers size={14} />
-                Chi tiết {batches.length} lô — {item.productName}
-              </div>
-              <div className="inv-batch-grid">
-                {batches.map((b) => (
-                  <div key={b.batchId || b.id} className="inv-batch-card">
-                    <div className="inv-batch-card__top">
-                      <div className="inv-batch-card__id">
-                        <span className="font-mono">{b.batchId || b.id}</span>
-                        <StatusBadge status={b.status} expiryDate={b.expiryDate} />
-                      </div>
-                    </div>
-                    <div className="inv-batch-card__body">
-                      <div className="inv-batch-card__row">
-                        <span className="inv-batch-card__label">Còn lại</span>
-                        <span style={{ fontWeight: 600, color: "var(--primary)" }}>
-                          {formatQty(b.remainingQuantity, item.unit || "phần")}
-                        </span>
-                      </div>
-                      <div className="inv-batch-card__row">
-                        <span className="inv-batch-card__label">Hạn SD</span>
-                        <ExpiryIndicator date={b.expiryDate} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
   );
 }

@@ -92,7 +92,7 @@ export default function StoreOrders() {
       render: (row) => formatDateTime(row.createdAt),
     },
     {
-      header: "",
+      header: "Thao tác",
       accessor: "actions",
       width: "60px",
       render: (row) => (

@@ -213,15 +213,13 @@ export default function ProductManagement() {
         </div>
       }
     >
-      <Card>
-        <DataTable
-          columns={columns}
-          data={products}
-          loading={loading}
-          searchPlaceholder="Tìm kiếm sản phẩm..."
-          toolbar={<Badge variant="primary">{products.length} sản phẩm</Badge>}
-        />
-      </Card>
+      <DataTable
+        columns={columns}
+        data={products}
+        loading={loading}
+        searchPlaceholder="Tìm kiếm sản phẩm..."
+        toolbar={<Badge variant="primary">{products.length} sản phẩm</Badge>}
+      />
 
       {/* CRUD Modal */}
       <Modal

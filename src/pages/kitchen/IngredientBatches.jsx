@@ -450,7 +450,7 @@ export default function IngredientBatches() {
       },
     },
     {
-      header: "",
+      header: "Thao tác",
       render: (r) => (
         <Button
           variant="ghost"

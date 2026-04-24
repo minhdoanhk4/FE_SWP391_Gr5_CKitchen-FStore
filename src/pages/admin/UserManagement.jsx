@@ -277,7 +277,7 @@ export default function UserManagement() {
       ),
     },
     {
-      header: "",
+      header: "Thao tác",
       width: "110px",
       render: (row) => (
         <div style={{ display: "flex", gap: "4px" }}>

@@ -161,7 +161,7 @@ export default function StoreSales() {
       render: (r) => <Badge variant="neutral">{r.itemCount ?? "—"}</Badge>,
     },
     {
-      header: "",
+      header: "Thao tác",
       width: "100px",
       render: (row) => (
         <div style={{ display: "flex", gap: "4px" }}>
