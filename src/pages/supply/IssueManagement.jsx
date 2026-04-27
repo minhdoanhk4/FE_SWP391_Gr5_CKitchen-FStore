@@ -31,22 +31,30 @@ export default function IssueManagement() {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
-  // We also show recent orders to pick from
-  const [recentOrders, setRecentOrders] = useState([]);
+  // Load active deliveries to pick from
+  const [recentDeliveries, setRecentDeliveries] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
 
   useEffect(() => {
-    const fetchOrders = async () => {
+    const fetchDeliveries = async () => {
       try {
-        const data = await supplyService.getOrders({ size: 50 });
-        setRecentOrders(data.content || []);
+        const [all] = await Promise.all([
+          supplyService.getDeliveries({ size: 50 }),
+        ]);
+        const items = all.content || all || [];
+        // Sort: DELAYED first, then SHIPPING, then others
+        items.sort((a, b) => {
+          const order = { DELAYED: 0, SHIPPING: 1 };
+          return (order[a.status] ?? 2) - (order[b.status] ?? 2);
+        });
+        setRecentDeliveries(items);
       } catch {
         // silent
       } finally {
         setLoadingOrders(false);
       }
     };
-    fetchOrders();
+    fetchDeliveries();
   }, []);
 
   const handleOpenNew = () => {
@@ -138,7 +146,7 @@ export default function IssueManagement() {
       </Card>
 
       {/* Recent orders for reference */}
-      {!loadingOrders && recentOrders.length > 0 && (
+      {!loadingOrders && recentDeliveries.length > 0 && (
         <div style={{ marginBottom: "20px" }}>
           <h3
             style={{
@@ -147,7 +155,7 @@ export default function IssueManagement() {
               marginBottom: "12px",
             }}
           >
-            Đơn hàng gần đây (để tham khảo)
+            Lịch giao hàng đang hoạt động (nhấn để chọn nhanh)
           </h3>
           <div
             style={{
@@ -156,15 +164,15 @@ export default function IssueManagement() {
               gap: "12px",
             }}
           >
-            {recentOrders.slice(0, 6).map((order) => (
+            {recentDeliveries.slice(0, 6).map((delivery) => (
               <Card
-                key={order.orderId || order.id}
+                key={delivery.deliveryId || delivery.id}
                 hoverable
-                style={{ cursor: "pointer" }}
+                style={{ cursor: "pointer", border: delivery.status === "DELAYED" ? "1px solid var(--warning)" : undefined }}
                 onClick={() => {
                   setForm((f) => ({
                     ...f,
-                    orderId: order.orderId || order.id,
+                    orderId: delivery.orderId || delivery.order?.orderId || delivery.order?.id || "",
                   }));
                   setShowModal(true);
                 }}
@@ -181,22 +189,22 @@ export default function IssueManagement() {
                     style={{
                       fontWeight: 600,
                       color: "var(--primary)",
-                      fontSize: "14px",
+                      fontSize: "13px",
                     }}
                   >
-                    {order.orderId || order.id}
+                    {delivery.orderId || delivery.order?.orderId || delivery.order?.id || delivery.deliveryId || delivery.id}
                   </span>
                   <Badge
                     variant={
-                      order.status === "SHIPPING"
-                        ? "info"
-                        : order.status === "DELAYED"
-                          ? "warning"
+                      delivery.status === "DELAYED"
+                        ? "warning"
+                        : delivery.status === "SHIPPING"
+                          ? "info"
                           : "neutral"
                     }
                     dot
                   >
-                    {order.status}
+                    {delivery.status}
                   </Badge>
                 </div>
                 <p
@@ -206,7 +214,7 @@ export default function IssueManagement() {
                     marginTop: "4px",
                   }}
                 >
-                  {order.storeName || order.storeId || ""}
+                  {delivery.storeName || delivery.order?.storeName || ""}
                 </p>
               </Card>
             ))}
@@ -248,15 +256,25 @@ export default function IssueManagement() {
         }
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          <Input
+          <Select
             label="Mã đơn hàng"
             required
             value={form.orderId}
             onChange={(e) =>
               setForm((f) => ({ ...f, orderId: e.target.value }))
             }
-            placeholder="VD: ORD0419001"
             error={errors.orderId}
+            options={[
+              { value: "", label: "-- Chọn đơn hàng --" },
+              ...recentDeliveries.map((d) => {
+                const oid = d.orderId || d.order?.orderId || d.order?.id || "";
+                const store = d.storeName || d.order?.storeName || "";
+                return {
+                  value: oid,
+                  label: `${oid}${store ? " — " + store : ""} [Giao hàng: ${d.status}]`,
+                };
+              }),
+            ]}
           />
           <Select
             label="Loại sự cố"
