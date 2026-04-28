@@ -703,20 +703,6 @@ export default function UserManagement() {
                   {viewUser.status === "ACTIVE" ? "Hoạt động" : "Vô hiệu"}
                 </Badge>
               </div>
-              <div>
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "var(--text-muted)",
-                    marginBottom: "4px",
-                  }}
-                >
-                  Xác thực
-                </div>
-                <Badge variant={viewUser.verify ? "success" : "warning"} dot>
-                  {viewUser.verify ? "Đã xác thực" : "Chưa xác thực"}
-                </Badge>
-              </div>
             </div>
           </div>
         )}
