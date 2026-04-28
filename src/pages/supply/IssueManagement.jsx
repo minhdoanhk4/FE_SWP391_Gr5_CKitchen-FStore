@@ -30,9 +30,11 @@ export default function IssueManagement() {
   });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [viewDelivery, setViewDelivery] = useState(null);
 
   // Load active deliveries to pick from
   const [recentDeliveries, setRecentDeliveries] = useState([]);
+  const [cancelledDeliveries, setCancelledDeliveries] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
 
   useEffect(() => {
@@ -43,11 +45,13 @@ export default function IssueManagement() {
         ]);
         const items = all.content || all || [];
         // Sort: DELAYED first, then SHIPPING, then others
-        items.sort((a, b) => {
+        const active = items.filter((i) => i.status !== "CANCELLED");
+        active.sort((a, b) => {
           const order = { DELAYED: 0, SHIPPING: 1 };
           return (order[a.status] ?? 2) - (order[b.status] ?? 2);
         });
-        setRecentDeliveries(items);
+        setRecentDeliveries(active);
+        setCancelledDeliveries(items.filter((i) => i.status === "CANCELLED"));
       } catch {
         // silent
       } finally {
@@ -106,9 +110,7 @@ export default function IssueManagement() {
     >
       {/* Explanation card */}
       <Card style={{ marginBottom: "20px" }}>
-        <div
-          style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}
-        >
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
           <AlertTriangle
             size={20}
             style={{
@@ -168,11 +170,21 @@ export default function IssueManagement() {
               <Card
                 key={delivery.deliveryId || delivery.id}
                 hoverable
-                style={{ cursor: "pointer", border: delivery.status === "DELAYED" ? "1px solid var(--warning)" : undefined }}
+                style={{
+                  cursor: "pointer",
+                  border:
+                    delivery.status === "DELAYED"
+                      ? "1px solid var(--warning)"
+                      : undefined,
+                }}
                 onClick={() => {
                   setForm((f) => ({
                     ...f,
-                    orderId: delivery.orderId || delivery.order?.orderId || delivery.order?.id || "",
+                    orderId:
+                      delivery.orderId ||
+                      delivery.order?.orderId ||
+                      delivery.order?.id ||
+                      "",
                   }));
                   setShowModal(true);
                 }}
@@ -192,7 +204,11 @@ export default function IssueManagement() {
                       fontSize: "13px",
                     }}
                   >
-                    {delivery.orderId || delivery.order?.orderId || delivery.order?.id || delivery.deliveryId || delivery.id}
+                    {delivery.orderId ||
+                      delivery.order?.orderId ||
+                      delivery.order?.id ||
+                      delivery.deliveryId ||
+                      delivery.id}
                   </span>
                   <Badge
                     variant={
@@ -205,6 +221,73 @@ export default function IssueManagement() {
                     dot
                   >
                     {delivery.status}
+                  </Badge>
+                </div>
+                <p
+                  style={{
+                    fontSize: "13px",
+                    color: "var(--text-secondary)",
+                    marginTop: "4px",
+                  }}
+                >
+                  {delivery.storeName || delivery.order?.storeName || ""}
+                </p>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Cancelled deliveries - read only audit view */}
+      {!loadingOrders && cancelledDeliveries.length > 0 && (
+        <div style={{ marginBottom: "20px" }}>
+          <h3
+            style={{
+              fontSize: "var(--text-base)",
+              fontWeight: 600,
+              marginBottom: "12px",
+              color: "var(--text-secondary)",
+            }}
+          >
+            Đơn hàng đã hủy (chỉ xem)
+          </h3>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: "12px",
+            }}
+          >
+            {cancelledDeliveries.slice(0, 6).map((delivery) => (
+              <Card
+                key={delivery.deliveryId || delivery.id}
+                hoverable
+                style={{ cursor: "pointer", border: "1px solid var(--danger)", background: "color-mix(in srgb, var(--danger) 6%, var(--bg-card))" }}
+                onClick={() => setViewDelivery(delivery)}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span
+                    className="font-mono"
+                    style={{
+                      fontWeight: 600,
+                      color: "var(--danger)",
+                      fontSize: "13px",
+                    }}
+                  >
+                    {delivery.orderId ||
+                      delivery.order?.orderId ||
+                      delivery.order?.id ||
+                      delivery.deliveryId ||
+                      delivery.id}
+                  </span>
+                  <Badge variant="neutral" dot>
+                    Đã hủy
                   </Badge>
                 </div>
                 <p
@@ -325,6 +408,56 @@ export default function IssueManagement() {
             </p>
           )}
         </div>
+      </Modal>
+
+      {/* Cancelled delivery detail modal - read only */}
+      <Modal
+        isOpen={!!viewDelivery}
+        onClose={() => setViewDelivery(null)}
+        title="Chi tiết đơn hàng đã hủy"
+        size="md"
+        footer={
+          <Button variant="secondary" onClick={() => setViewDelivery(null)}>
+            Đóng
+          </Button>
+        }
+      >
+        {viewDelivery && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "14px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "var(--text-secondary)" }}>Mã giao hàng</span>
+              <span className="font-mono" style={{ fontWeight: 600 }}>
+                {viewDelivery.deliveryId || viewDelivery.id || "—"}
+              </span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "var(--text-secondary)" }}>Mã đơn hàng</span>
+              <span className="font-mono" style={{ fontWeight: 600 }}>
+                {viewDelivery.orderId || viewDelivery.order?.orderId || viewDelivery.order?.id || "—"}
+              </span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "var(--text-secondary)" }}>Cửa hàng</span>
+              <span>{viewDelivery.storeName || viewDelivery.order?.storeName || "—"}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "var(--text-secondary)" }}>Trạng thái</span>
+              <Badge variant="neutral" dot>Đã hủy</Badge>
+            </div>
+            {viewDelivery.assignedAt && (
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--text-secondary)" }}>Ngày lên lịch</span>
+                <span>{new Date(viewDelivery.assignedAt).toLocaleString("vi-VN")}</span>
+              </div>
+            )}
+            {viewDelivery.notes && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                <span style={{ color: "var(--text-secondary)" }}>Ghi chú</span>
+                <p style={{ fontStyle: "italic", margin: 0 }}>{viewDelivery.notes}</p>
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
     </PageWrapper>
   );
