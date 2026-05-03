@@ -8,12 +8,16 @@ import {
   CheckSquare,
   Square,
   PackagePlus,
+  ChevronDown,
+  ChefHat,
+  Scale,
+  Inbox,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "../../components/layout/PageWrapper/PageWrapper";
-import { Badge, Button, Modal } from "../../components/ui";
-import { Input, Select } from "../../components/ui";
+import { Badge, Button, Modal, Input, Select } from "../../components/ui";
 import managerService from "../../services/managerService";
+import "./RecipeManagement.css";
 import { suggestIngredients } from "../../services/aiService";
 
 const UNIT_OPTIONS = [
@@ -364,6 +368,17 @@ export default function RecipeManagement() {
     return Object.values(map);
   }, [recipes]);
 
+  const [expandedGroups, setExpandedGroups] = useState(new Set());
+
+  const toggleGroup = (productId) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  };
+
   return (
     <PageWrapper
       title="Quản lý công thức"
@@ -374,176 +389,195 @@ export default function RecipeManagement() {
         </Button>
       }
     >
-      {loading ? (
-        <p
-          style={{
-            color: "var(--text-muted)",
-            padding: "32px",
-            textAlign: "center",
-          }}
-        >
-          Đang tải...
-        </p>
-      ) : grouped.length === 0 ? (
-        <p
-          style={{
-            color: "var(--text-muted)",
-            padding: "32px",
-            textAlign: "center",
-          }}
-        >
-          Chưa có công thức nào.
-        </p>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          {grouped.map((group) => (
-            <div
-              key={group.productId}
-              style={{
-                border: "1px solid var(--surface-border)",
-                borderRadius: "var(--radius-lg)",
-                overflow: "hidden",
-              }}
-            >
-              {/* Product header */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  padding: "12px 16px",
-                  background: "var(--surface-hover)",
-                  borderBottom: "1px solid var(--surface-border)",
-                }}
-              >
-                <span style={{ fontWeight: 700, fontSize: "15px" }}>
-                  {group.productName}
-                </span>
-                <span
-                  className="font-mono"
-                  style={{ fontSize: "12px", color: "var(--text-muted)" }}
-                >
-                  {group.productId}
-                </span>
-                <Badge variant="neutral" style={{ marginLeft: "auto" }}>
-                  {group.items.length} nguyên liệu
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  iconOnly
-                  icon={Trash2}
-                  title="Xóa tất cả công thức của sản phẩm này"
-                  onClick={() => setConfirmDeleteGroup(group)}
-                />
-              </div>
-
-              {/* Ingredients table */}
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  fontSize: "14px",
-                }}
-              >
-                <thead>
-                  <tr style={{ background: "var(--surface)" }}>
-                    <th
-                      style={{
-                        padding: "8px 16px",
-                        textAlign: "left",
-                        fontWeight: 600,
-                        color: "var(--text-muted)",
-                        fontSize: "12px",
-                      }}
-                    >
-                      Nguyên liệu
-                    </th>
-                    <th
-                      style={{
-                        padding: "8px 16px",
-                        textAlign: "left",
-                        fontWeight: 600,
-                        color: "var(--text-muted)",
-                        fontSize: "12px",
-                      }}
-                    >
-                      Mã NL
-                    </th>
-                    <th
-                      style={{
-                        padding: "8px 16px",
-                        textAlign: "left",
-                        fontWeight: 600,
-                        color: "var(--text-muted)",
-                        fontSize: "12px",
-                      }}
-                    >
-                      Định mức
-                    </th>
-                    <th style={{ padding: "8px 16px", width: "80px" }} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {group.items.map((row) => (
-                    <tr
-                      key={row.id}
-                      style={{ borderTop: "1px solid var(--surface-border)" }}
-                    >
-                      <td style={{ padding: "10px 16px", fontWeight: 500 }}>
-                        {row.ingredientName || row.ingredientId}
-                      </td>
-                      <td style={{ padding: "10px 16px" }}>
-                        <span
-                          className="font-mono"
-                          style={{
-                            fontSize: "12px",
-                            color: "var(--text-muted)",
-                          }}
-                        >
-                          {row.ingredientId}
-                        </span>
-                      </td>
-                      <td style={{ padding: "10px 16px" }}>
-                        <span className="font-mono">
-                          {row.quantity}{" "}
-                          <span style={{ color: "var(--text-muted)" }}>
-                            {row.unit}
-                          </span>
-                        </span>
-                      </td>
-                      <td style={{ padding: "10px 16px" }}>
-                        <div style={{ display: "flex", gap: "4px" }}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            iconOnly
-                            icon={Edit}
-                            title="Sửa"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEdit(row);
-                            }}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            iconOnly
-                            icon={Trash2}
-                            title="Xóa"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setConfirmDelete(row);
-                            }}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {!loading && grouped.length > 0 && (
+        <div className="recipe-stats">
+          <div className="recipe-stat-card">
+            <div className="recipe-stat-icon" style={{ background: "rgba(16, 185, 129, 0.1)", color: "var(--primary)" }}>
+              <ChefHat size={24} />
             </div>
-          ))}
+            <div className="recipe-stat-info">
+              <span className="recipe-stat-value">{grouped.length}</span>
+              <span className="recipe-stat-label">Sản phẩm có công thức</span>
+            </div>
+          </div>
+          <div className="recipe-stat-card">
+            <div className="recipe-stat-icon" style={{ background: "rgba(59, 130, 246, 0.1)", color: "var(--info)" }}>
+              <Scale size={24} />
+            </div>
+            <div className="recipe-stat-info">
+              <span className="recipe-stat-value">{recipes.length}</span>
+              <span className="recipe-stat-label">Tổng số định mức</span>
+            </div>
+          </div>
+          <div className="recipe-stat-card hide-mobile">
+            <div className="recipe-stat-icon" style={{ background: "rgba(245, 158, 11, 0.1)", color: "var(--warning)" }}>
+              <Sparkles size={24} />
+            </div>
+            <div className="recipe-stat-info">
+              <span className="recipe-stat-value">AI Ready</span>
+              <span className="recipe-stat-label">Hỗ trợ gợi ý thông minh</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: "64px" }}>
+          <RefreshCw className="animate-spin" style={{ color: "var(--text-muted)" }} />
+        </div>
+      ) : grouped.length === 0 ? (
+        <div className="recipe-empty">
+          <div className="recipe-empty-icon">
+            <Inbox size={32} />
+          </div>
+          <h3>Chưa có công thức nào</h3>
+          <p style={{ color: "var(--text-secondary)", maxWidth: "320px" }}>
+            Hãy bắt đầu bằng việc thêm công thức cho sản phẩm đầu tiên của bạn.
+          </p>
+          <Button icon={Plus} onClick={handleOpenNew} style={{ marginTop: "8px" }}>
+            Thêm công thức ngay
+          </Button>
+        </div>
+      ) : (
+        <div className="recipe-accordion">
+          {grouped.map((group) => {
+            const isExpanded = expandedGroups.has(group.productId);
+            
+            // Refined product icon logic
+            const getProductIcon = (name) => {
+              const n = name.toLowerCase();
+              if (n.includes("bánh") || n.includes("cake")) return "🍰";
+              if (n.includes("nước") || n.includes("trà") || n.includes("drink")) return "🥤";
+              if (n.includes("mì") || n.includes("phở") || n.includes("noodle")) return "🍜";
+              if (n.includes("cơm") || n.includes("rice")) return "🍛";
+              if (n.includes("café") || n.includes("cà phê") || n.includes("coffee")) return "☕";
+              if (n.includes("sữa") || n.includes("milk")) return "🥛";
+              return "🍽️";
+            };
+
+            const productIcon = getProductIcon(group.productName || "");
+
+            return (
+              <div
+                key={group.productId}
+                className={`recipe-group ${isExpanded ? "recipe-group--expanded" : ""}`}
+              >
+                {/* Product header (Clickable) */}
+                <div
+                  className="recipe-header"
+                  onClick={() => toggleGroup(group.productId)}
+                >
+                  <div className="recipe-product-icon">
+                    {productIcon}
+                  </div>
+                  <div className="recipe-info-main">
+                    <span className="recipe-product-name">
+                      {group.productName}
+                    </span>
+                    <span className="recipe-product-id">
+                      ID: {group.productId}
+                    </span>
+                  </div>
+                  
+                  <div className="recipe-meta">
+                    <Badge variant="primary" style={{ borderRadius: "6px" }}>
+                      {group.items.length} nguyên liệu
+                    </Badge>
+                    <div className="recipe-actions hide-mobile">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        iconOnly
+                        icon={Trash2}
+                        title="Xóa tất cả công thức của sản phẩm này"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmDeleteGroup(group);
+                        }}
+                      />
+                    </div>
+                    <div className="recipe-chevron">
+                      <ChevronDown size={20} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ingredients table (Collapsible) */}
+                <div
+                  className="recipe-content"
+                  style={{
+                    maxHeight: isExpanded ? "2000px" : "0px",
+                    opacity: isExpanded ? 1 : 0,
+                  }}
+                >
+                  <div className="recipe-table-wrapper">
+                    <div className="table-responsive">
+                      <table className="recipe-table">
+                        <thead>
+                          <tr>
+                            <th>Nguyên liệu</th>
+                            <th style={{ width: "140px" }}>Mã NL</th>
+                            <th style={{ width: "160px" }}>Định mức</th>
+                            <th style={{ width: "100px", textAlign: "right" }}>Thao tác</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.items.map((row) => (
+                            <tr key={row.id}>
+                              <td>
+                                <div className="recipe-ing-name">
+                                  {row.ingredientName || row.ingredientId}
+                                </div>
+                              </td>
+                              <td>
+                                <span className="recipe-ing-id">
+                                  {row.ingredientId}
+                                </span>
+                              </td>
+                              <td>
+                                <div className="recipe-quantity-badge">
+                                  {row.quantity}
+                                  <span style={{ color: "var(--text-muted)", fontSize: "10px", fontWeight: 500 }}>
+                                    {row.unit}
+                                  </span>
+                                </div>
+                              </td>
+                              <td>
+                                <div className="recipe-actions">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    iconOnly
+                                    icon={Edit}
+                                    title="Sửa"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEdit(row);
+                                    }}
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    iconOnly
+                                    icon={Trash2}
+                                    title="Xóa"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setConfirmDelete(row);
+                                    }}
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

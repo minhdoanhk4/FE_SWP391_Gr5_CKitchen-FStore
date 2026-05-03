@@ -180,15 +180,20 @@ export default function ProductionPlan() {
 
   const handleCancel = async () => {
     if (!selectedPlan) return;
+    
+    const notes = window.prompt("Lý do hủy kế hoạch sản xuất (tùy chọn):", "");
+    if (notes === null) return; // User cancelled the prompt
+
     if (
       !window.confirm(
         "Xác nhận hủy kế hoạch sản xuất? Nguyên liệu đã trừ sẽ được hoàn trả.",
       )
     )
       return;
+
     setActionLoading(true);
     try {
-      await kitchenService.cancelProductionPlan(selectedPlan.id);
+      await kitchenService.cancelProductionPlan(selectedPlan.id, notes);
       toast.success("Đã hủy kế hoạch");
       fetchPlans();
       setSelectedPlan(null);

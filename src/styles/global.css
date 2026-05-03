@@ -177,8 +177,32 @@ table {
   box-shadow: var(--shadow-md);
 }
 
-/* ---- Toast overrides ---- */
-.toast-container {
-  font-family: var(--font-body) !important;
+/* ---- Table Container ---- */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--surface-border);
+  background: var(--surface-card);
+  margin-bottom: var(--space-4);
+}
+
+.table-responsive table {
+  min-width: 600px; /* Force scroll on small screens */
+}
+
+/* ---- Responsive Utilities ---- */
+@media (max-width: 768px) {
+  html { font-size: 14px; }
+  
+  .hide-mobile { display: none !important; }
+  .show-mobile { display: block !important; }
+  
+  .card-gradient:hover { transform: none; }
+}
+
+@media (min-width: 769px) {
+  .show-mobile { display: none !important; }
 }
 

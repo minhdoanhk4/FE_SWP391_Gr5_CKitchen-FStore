@@ -120,8 +120,8 @@ export default function UserManagement() {
       password: "", // Luôn reset password khi edit
       status: user.status,
       verify: true,
-      storeId: user.store?.id || "",
-      kitchenId: user.kitchen?.id || "",
+      storeId: user.storeId || "",
+      kitchenId: user.kitchenId || "",
     });
     setErrors({});
     setShowModal(true);
@@ -136,6 +136,10 @@ export default function UserManagement() {
     if (!form.roleName) errs.roleName = "Vui lòng chọn vai trò";
 
     if (!editUser) {
+      if (!form.fullName?.trim()) errs.fullName = "Vui lòng nhập họ và tên";
+      if (!form.username?.trim()) errs.username = "Vui lòng nhập tên đăng nhập";
+      if (!form.password?.trim()) errs.password = "Vui lòng nhập mật khẩu";
+
       if (form.roleName === "FRANCHISE_STORE_STAFF" && !form.storeId) {
         errs.storeId = "Vui lòng chọn cửa hàng";
       }
@@ -167,6 +171,8 @@ export default function UserManagement() {
           roleName: form.roleName,
           status: form.status,
           verify: form.verify,
+          storeId: form.storeId,
+          kitchenId: form.kitchenId,
         };
         // Only send password if it was entered
         if (form.password) {
@@ -180,12 +186,16 @@ export default function UserManagement() {
         const createPayload = {
           email: form.email,
           roleName: form.roleName,
+          fullName: form.fullName,
+          username: form.username,
+          password: form.password,
+          status: form.status,
           storeId: form.storeId,
           kitchenId: form.kitchenId,
         };
 
         await adminService.users.create(createPayload);
-        toast.success(`Đã gửi email đăng ký cho ${form.email}`);
+        toast.success(`Đã tạo thành công người dùng ${form.email}`);
       }
       setShowModal(false);
       fetchUsers();
@@ -491,16 +501,61 @@ export default function UserManagement() {
                   }
                 />
               </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                }}
+              >
+                {(form.roleName === "FRANCHISE_STORE_STAFF" ||
+                  form.roleName === "MANAGER") && (
+                  <Select
+                    label="Cửa hàng phụ trách"
+                    options={[
+                      { value: "", label: "-- Không có --" },
+                      ...stores.map((s) => ({ value: s.id, label: s.name })),
+                    ]}
+                    value={form.storeId}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, storeId: e.target.value }))
+                    }
+                  />
+                )}
+                {form.roleName === "CENTRAL_KITCHEN_STAFF" && (
+                  <Select
+                    label="Bếp phụ trách"
+                    options={[
+                      { value: "", label: "-- Không có --" },
+                      ...kitchens.map((k) => ({ value: k.id, label: k.name })),
+                    ]}
+                    value={form.kitchenId}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, kitchenId: e.target.value }))
+                    }
+                  />
+                )}
+              </div>
             </>
           ) : (
             <>
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr",
+                  gridTemplateColumns: "1fr 1fr",
                   gap: "16px",
                 }}
               >
+                <Input
+                  label="Họ và tên"
+                  required
+                  value={form.fullName}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, fullName: e.target.value }))
+                  }
+                  placeholder="Nguyễn Văn A"
+                  error={errors.fullName}
+                />
                 <Input
                   label="Email"
                   required
@@ -512,6 +567,52 @@ export default function UserManagement() {
                   placeholder="email@ckitchen.vn"
                   error={errors.email}
                 />
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                }}
+              >
+                <Input
+                  label="Tên đăng nhập"
+                  required
+                  value={form.username}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, username: e.target.value }))
+                  }
+                  placeholder="admin_01"
+                  error={errors.username}
+                />
+                <Input
+                  label="Mật khẩu"
+                  required
+                  type="password"
+                  value={form.password}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, password: e.target.value }))
+                  }
+                  placeholder="Nhập mật khẩu"
+                  error={errors.password}
+                />
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                }}
+              >
+                <Select
+                  label="Trạng thái"
+                  options={STATUS_OPTIONS}
+                  value={form.status}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, status: e.target.value }))
+                  }
+                />
+                <div />
               </div>
               <div
                 style={{
@@ -540,10 +641,11 @@ export default function UserManagement() {
                   error={errors.roleName}
                 />
 
-                {form.roleName === "FRANCHISE_STORE_STAFF" && (
+                {(form.roleName === "FRANCHISE_STORE_STAFF" ||
+                  form.roleName === "MANAGER") && (
                   <Select
                     label="Cửa hàng"
-                    required
+                    required={form.roleName === "FRANCHISE_STORE_STAFF"}
                     options={[
                       { value: "", label: "-- Chọn cửa hàng --" },
                       ...stores.map((s) => ({ value: s.id, label: s.name })),
@@ -706,6 +808,34 @@ export default function UserManagement() {
                   {viewUser.status === "ACTIVE" ? "Hoạt động" : "Vô hiệu"}
                 </Badge>
               </div>
+              {viewUser.store && (
+                <div>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--text-muted)",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Cửa hàng
+                  </div>
+                  <div style={{ fontWeight: 500 }}>{viewUser.store.name}</div>
+                </div>
+              )}
+              {viewUser.kitchen && (
+                <div>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--text-muted)",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Bếp trung tâm
+                  </div>
+                  <div style={{ fontWeight: 500 }}>{viewUser.kitchen.name}</div>
+                </div>
+              )}
             </div>
           </div>
         )}

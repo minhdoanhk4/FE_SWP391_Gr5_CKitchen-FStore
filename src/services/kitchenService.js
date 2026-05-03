@@ -80,9 +80,9 @@ const kitchenService = {
       })
       .then((r) => r.data.data),
 
-  cancelProductionPlan: (planId) =>
+  cancelProductionPlan: (planId, notes = "") =>
     api
-      .patch(`/central-kitchen/production-plans/${planId}/cancel`)
+      .patch(`/central-kitchen/production-plans/${planId}/cancel`, { notes })
       .then((r) => r.data.data),
 
   // ── Ingredient Inventory & Batches ────────────────────────────────────────

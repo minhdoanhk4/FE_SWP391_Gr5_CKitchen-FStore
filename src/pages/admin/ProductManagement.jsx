@@ -68,6 +68,37 @@ export default function ProductManagement() {
     fetchData();
   }, []);
 
+  const handleImageChange = (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const incoming = Array.from(files);
+    
+    // Update imageFiles (appending to existing if multiple calls)
+    const dt = new DataTransfer();
+    if (imageFiles) Array.from(imageFiles).forEach(f => dt.items.add(f));
+    incoming.forEach(f => dt.items.add(f));
+    setImageFiles(dt.files);
+
+    // Update previews
+    const newPreviews = incoming.map(f => URL.createObjectURL(f));
+    setImagePreviews(prev => [...prev, ...newPreviews]);
+  };
+
+  const removeImage = (index) => {
+    // Revoke URL to prevent memory leak
+    URL.revokeObjectURL(imagePreviews[index]);
+    
+    // Update previews
+    const nextPreviews = imagePreviews.filter((_, i) => i !== index);
+    setImagePreviews(nextPreviews);
+
+    // Update imageFiles
+    const dt = new DataTransfer();
+    Array.from(imageFiles).filter((_, i) => i !== index).forEach(f => dt.items.add(f));
+    setImageFiles(dt.files.length > 0 ? dt.files : null);
+  };
+
   const handleSelectAll = (e) => {
     if (selectedIds.length === products.length) {
       setSelectedIds([]);
@@ -242,8 +273,81 @@ export default function ProductManagement() {
               <Input label="Giá vốn" type="number" value={form.cost} onChange={(e) => setForm({...form, cost: e.target.value})} />
            </div>
            <div>
-              <label style={{ fontSize: "12px", display: "block", marginBottom: "8px" }}>Hình ảnh</label>
-              <input type="file" onChange={(e) => setImageFiles(e.target.files)} />
+              <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "8px", color: "var(--text-secondary)" }}>Hình ảnh sản phẩm</label>
+              
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = "var(--primary)"; }}
+                onDragLeave={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = "var(--border)"; }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.style.borderColor = "var(--border)";
+                  if (e.dataTransfer.files) handleImageChange({ target: { files: e.dataTransfer.files } });
+                }}
+                style={{ 
+                  border: "2px dashed var(--border)", 
+                  borderRadius: "12px", 
+                  padding: "24px", 
+                  textAlign: "center", 
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  background: "var(--surface-sub)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "8px"
+                }}
+                onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--primary)"}
+                onMouseOut={(e) => e.currentTarget.style.borderColor = "var(--border)"}
+              >
+                <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "var(--primary-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
+                  <Upload size={20} />
+                </div>
+                <div>
+                  <span style={{ fontWeight: 600, color: "var(--primary)" }}>Nhấn để tải lên</span> hoặc kéo thả
+                </div>
+                <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                  PNG, JPG, JPEG (Tối đa 10MB)
+                </div>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleImageChange} 
+                  multiple 
+                  accept="image/*" 
+                  style={{ display: "none" }} 
+                />
+              </div>
+
+              {imagePreviews.length > 0 && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", gap: "12px", marginTop: "16px" }}>
+                  {imagePreviews.map((url, i) => (
+                    <div key={i} style={{ position: "relative", aspectRatio: "1/1", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--border)" }}>
+                      <img src={url} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="preview" />
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); removeImage(i); }}
+                        style={{ 
+                          position: "absolute", 
+                          top: "4px", 
+                          right: "4px", 
+                          background: "rgba(0,0,0,0.5)", 
+                          color: "white", 
+                          border: "none", 
+                          borderRadius: "50%", 
+                          width: "20px", 
+                          height: "20px", 
+                          display: "flex", 
+                          alignItems: "center", 
+                          justifyContent: "center",
+                          cursor: "pointer"
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
            </div>
         </div>
       </Modal>

@@ -765,101 +765,96 @@ export default function ProductCatalog() {
           )}
           {/* Image upload */}
           <div>
-            <label
-              style={{
-                display: "block",
-                fontSize: "13px",
-                fontWeight: 500,
-                marginBottom: "6px",
-                color: "var(--text-secondary)",
-              }}
-            >
-              Hình ảnh sản phẩm
-            </label>
+            <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "8px", color: "var(--text-secondary)" }}>Hình ảnh sản phẩm</label>
+            
             {/* Existing server images (edit mode) */}
             {editProduct?.imageUrl?.length > 0 && (
-              <div style={{ marginBottom: "8px" }}>
-                <p
-                  style={{
-                    fontSize: "12px",
-                    color: "var(--text-muted)",
-                    marginBottom: "6px",
-                  }}
-                >
-                  Ảnh hiện tại:
-                </p>
+              <div style={{ marginBottom: "16px", padding: "12px", background: "var(--surface-sub)", borderRadius: "12px", border: "1px solid var(--border)" }}>
+                <p style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "8px" }}>Ảnh hiện tại trên hệ thống:</p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                   {editProduct.imageUrl.map((url, i) => (
-                    <img
-                      key={i}
-                      src={url}
-                      alt={`existing-${i}`}
-                      style={{
-                        width: 80,
-                        height: 80,
-                        objectFit: "cover",
-                        borderRadius: "var(--radius-sm)",
-                        border: "1px solid var(--surface-border)",
-                      }}
-                    />
+                    <div key={i} style={{ width: 60, height: 60, borderRadius: "8px", overflow: "hidden", border: "1px solid var(--border)" }}>
+                      <img src={url} alt={`existing-${i}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    </div>
                   ))}
                 </div>
               </div>
             )}
-            {imagePreviews.length > 0 ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: "8px",
-                  marginBottom: "8px",
-                }}
-              >
-                {imagePreviews.map((src, i) => (
-                  <div
-                    key={i}
-                    style={{ position: "relative", width: 80, height: 80 }}
-                  >
-                    <img
-                      src={src}
-                      alt={`preview-${i}`}
-                      style={{
-                        width: 80,
-                        height: 80,
-                        objectFit: "cover",
-                        borderRadius: "var(--radius-sm)",
-                        border: "1px solid var(--surface-border)",
-                      }}
-                    />
-                    <button
+
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = "var(--primary)"; }}
+              onDragLeave={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = "var(--border)"; }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.currentTarget.style.borderColor = "var(--border)";
+                if (e.dataTransfer.files) setImages(e.dataTransfer.files);
+              }}
+              style={{ 
+                border: "2px dashed var(--border)", 
+                borderRadius: "12px", 
+                padding: "24px", 
+                textAlign: "center", 
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                background: "var(--surface-sub)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "8px"
+              }}
+              onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--primary)"}
+              onMouseOut={(e) => e.currentTarget.style.borderColor = "var(--border)"}
+            >
+              <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "var(--primary-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
+                <Upload size={20} />
+              </div>
+              <div>
+                <span style={{ fontWeight: 600, color: "var(--primary)" }}>Nhấn để tải lên</span> hoặc kéo thả ảnh mới
+              </div>
+              <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                PNG, JPG, JPEG (Tối đa 10MB)
+              </div>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={(e) => setImages(e.target.files)} 
+                multiple 
+                accept="image/*" 
+                style={{ display: "none" }} 
+              />
+            </div>
+
+            {imagePreviews.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", gap: "12px", marginTop: "16px" }}>
+                {imagePreviews.map((url, i) => (
+                  <div key={i} style={{ position: "relative", aspectRatio: "1/1", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--border)" }}>
+                    <img src={url} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="preview" />
+                    <button 
                       type="button"
-                      onClick={() => {
-                        URL.revokeObjectURL(src);
-                        const newPreviews = imagePreviews.filter(
-                          (_, idx) => idx !== i,
-                        );
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        URL.revokeObjectURL(url);
+                        const nextPreviews = imagePreviews.filter((_, idx) => idx !== i);
                         const dt = new DataTransfer();
-                        Array.from(imageFiles)
-                          .filter((_, idx) => idx !== i)
-                          .forEach((f) => dt.items.add(f));
-                        setImagePreviews(newPreviews);
+                        Array.from(imageFiles).filter((_, idx) => idx !== i).forEach(f => dt.items.add(f));
+                        setImagePreviews(nextPreviews);
                         setImageFiles(dt.files.length > 0 ? dt.files : null);
                       }}
-                      style={{
-                        position: "absolute",
-                        top: -6,
-                        right: -6,
-                        width: 18,
-                        height: 18,
-                        borderRadius: "50%",
-                        background: "var(--danger)",
-                        color: "#fff",
-                        border: "none",
-                        cursor: "pointer",
-                        fontSize: "11px",
-                        lineHeight: "18px",
-                        textAlign: "center",
-                        padding: 0,
+                      style={{ 
+                        position: "absolute", 
+                        top: "4px", 
+                        right: "4px", 
+                        background: "rgba(0,0,0,0.5)", 
+                        color: "white", 
+                        border: "none", 
+                        borderRadius: "50%", 
+                        width: "20px", 
+                        height: "20px", 
+                        display: "flex", 
+                        alignItems: "center", 
+                        justifyContent: "center",
+                        cursor: "pointer"
                       }}
                     >
                       ×
@@ -867,42 +862,7 @@ export default function ProductCatalog() {
                   </div>
                 ))}
               </div>
-            ) : null}
-            <div
-              style={{
-                border: "1px dashed var(--surface-border)",
-                borderRadius: "var(--radius-md)",
-                padding: "12px",
-                textAlign: "center",
-                cursor: "pointer",
-              }}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload
-                size={18}
-                color="var(--text-muted)"
-                style={{ marginBottom: 2 }}
-              />
-              <p
-                style={{
-                  fontSize: "13px",
-                  color: "var(--text-muted)",
-                  margin: 0,
-                }}
-              >
-                {imagePreviews.length > 0
-                  ? "Thêm ảnh khác"
-                  : "Nhấp để chọn ảnh"}
-              </p>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              style={{ display: "none" }}
-              onChange={(e) => setImages(e.target.files)}
-            />
+            )}
           </div>
         </div>
       </Modal>
