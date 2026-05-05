@@ -301,6 +301,7 @@ export default function KitchenOrders({
   const [statusNotes, setStatusNotes] = useState("");
   const [validStatuses, setValidStatuses] = useState([]);
   const [stockCheck, setStockCheck] = useState(null); // null | { loading, rows: [{name, needed, available, unit, ok}] }
+  const [myKitchen, setMyKitchen] = useState(null);
 
   // ── Fetch valid order statuses from BE ────────────────────────────────
   useEffect(() => {
@@ -308,6 +309,10 @@ export default function KitchenOrders({
       .getOrderStatuses()
       .then((statuses) => setValidStatuses(statuses || []))
       .catch(() => {}); // fallback to DEFAULT_NEXT_STATUSES
+    kitchenService
+      .getMyKitchen()
+      .then((k) => setMyKitchen(k))
+      .catch(() => {});
   }, []);
 
   // Build transition map — dynamic when BE responds, static fallback otherwise
@@ -386,7 +391,8 @@ export default function KitchenOrders({
                 p.productId === item.productId ||
                 p.productName === item.productName,
             );
-            const available = found?.totalRemainingQuantity ?? found?.totalQuantity ?? 0;
+            const available =
+              found?.totalRemainingQuantity ?? found?.totalQuantity ?? 0;
             return {
               name: item.productName,
               needed: item.quantity,
@@ -447,7 +453,12 @@ export default function KitchenOrders({
         </span>
       ),
     },
-    { header: "Bếp tiếp nhận", accessor: "kitchenName", sortable: true, render: (row) => row.kitchenName || row.storeName || "—" },
+    {
+      header: "Bếp tiếp nhận",
+      accessor: "kitchenName",
+      sortable: true,
+      render: (row) => row.kitchenName || "—",
+    },
     {
       header: "Sản phẩm",
       accessor: "items",
@@ -512,11 +523,13 @@ export default function KitchenOrders({
         const nextStatuses = nextStatusMap[row.status] || [];
         // PENDING: only show "Tiếp nhận" — kitchen must accept before advancing
         const canAssign = row.status === "PENDING";
-        // For non-PENDING statuses, use the mapped next status
-        const primaryNext = canAssign
-          ? null
-          : nextStatuses.find((s) => s !== "CANCELLED");
-        const canCancel = nextStatuses.includes("CANCELLED");
+        // Only allow status actions on orders belonging to this kitchen
+        const isMyOrder = row.kitchenId === myKitchen?.id;
+        const primaryNext =
+          canAssign || !isMyOrder
+            ? null
+            : nextStatuses.find((s) => s !== "CANCELLED");
+        const canCancel = isMyOrder && nextStatuses.includes("CANCELLED");
 
         return (
           <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
@@ -647,172 +660,196 @@ export default function KitchenOrders({
       />
 
       {/* Status change confirmation modal */}
-      {pendingChange && (() => {
-        const meta = getConfirmMeta(pendingChange.toStatus);
-        const isCancel = pendingChange.toStatus === "CANCELLED";
-        const isPacking = pendingChange.toStatus === "PACKED_WAITING_SHIPPER";
-        return (
-          <Modal
-            isOpen
-            onClose={closeStatusModal}
-            title={meta.title}
-            footer={
-              <div className="order-confirm__actions">
-                <Button variant="ghost" onClick={closeStatusModal}>
-                  Hủy
-                </Button>
-                <Button
-                  variant={isCancel ? "danger" : "primary"}
-                  onClick={handleConfirmChange}
-                  disabled={
-                    isPacking && stockCheck?.rows?.some((r) => !r.ok)
-                  }
-                >
-                  {isCancel ? "Xác nhận hủy" : "Xác nhận"}
-                </Button>
-              </div>
-            }
-          >
-            <div className="order-confirm">
-              {/* Centered header: icon + message + status flow */}
-              <div className="order-confirm__header">
-                <div
-                  className="order-confirm__icon"
-                  style={{ background: meta.bg, color: meta.color }}
-                >
-                  <meta.Icon size={24} />
+      {pendingChange &&
+        (() => {
+          const meta = getConfirmMeta(pendingChange.toStatus);
+          const isCancel = pendingChange.toStatus === "CANCELLED";
+          const isPacking = pendingChange.toStatus === "PACKED_WAITING_SHIPPER";
+          return (
+            <Modal
+              isOpen
+              onClose={closeStatusModal}
+              title={meta.title}
+              footer={
+                <div className="order-confirm__actions">
+                  <Button variant="ghost" onClick={closeStatusModal}>
+                    Hủy
+                  </Button>
+                  <Button
+                    variant={isCancel ? "danger" : "primary"}
+                    onClick={handleConfirmChange}
+                    disabled={isPacking && stockCheck?.rows?.some((r) => !r.ok)}
+                  >
+                    {isCancel ? "Xác nhận hủy" : "Xác nhận"}
+                  </Button>
                 </div>
-                <p className="order-confirm__message">
-                  {isCancel ? "Bạn có chắc chắn muốn hủy đơn hàng " : "Chuyển đơn hàng "}
-                  <strong>{pendingChange.orderId}</strong>
-                  {pendingChange.storeName && ` (${pendingChange.storeName})`}
-                  {isCancel ? "? Thao tác này không thể hoàn tác." : "."}
-                </p>
-                <div className="order-confirm__status-flow">
-                  <Badge variant={STATUS_COLORS[pendingChange.fromStatus]} dot>
-                    {STATUS_LABELS[pendingChange.fromStatus]}
-                  </Badge>
-                  {isCancel ? (
-                    <XCircle
-                      size={16}
-                      className="order-confirm__arrow"
-                      style={{ color: "var(--danger)" }}
-                    />
-                  ) : (
-                    <ChevronRight size={20} className="order-confirm__arrow" />
-                  )}
-                  <Badge variant={STATUS_COLORS[pendingChange.toStatus]} dot>
-                    {STATUS_LABELS[pendingChange.toStatus]}
-                  </Badge>
+              }
+            >
+              <div className="order-confirm">
+                {/* Centered header: icon + message + status flow */}
+                <div className="order-confirm__header">
+                  <div
+                    className="order-confirm__icon"
+                    style={{ background: meta.bg, color: meta.color }}
+                  >
+                    <meta.Icon size={24} />
+                  </div>
+                  <p className="order-confirm__message">
+                    {isCancel
+                      ? "Bạn có chắc chắn muốn hủy đơn hàng "
+                      : "Chuyển đơn hàng "}
+                    <strong>{pendingChange.orderId}</strong>
+                    {pendingChange.storeName && ` (${pendingChange.storeName})`}
+                    {isCancel ? "? Thao tác này không thể hoàn tác." : "."}
+                  </p>
+                  <div className="order-confirm__status-flow">
+                    <Badge
+                      variant={STATUS_COLORS[pendingChange.fromStatus]}
+                      dot
+                    >
+                      {STATUS_LABELS[pendingChange.fromStatus]}
+                    </Badge>
+                    {isCancel ? (
+                      <XCircle
+                        size={16}
+                        className="order-confirm__arrow"
+                        style={{ color: "var(--danger)" }}
+                      />
+                    ) : (
+                      <ChevronRight
+                        size={20}
+                        className="order-confirm__arrow"
+                      />
+                    )}
+                    <Badge variant={STATUS_COLORS[pendingChange.toStatus]} dot>
+                      {STATUS_LABELS[pendingChange.toStatus]}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
 
-              {/* Stock check — full width, left-aligned */}
-              {isPacking && stockCheck && (
-                <div
-                  style={{
-                    border: "1px solid var(--border)",
-                    borderRadius: "var(--radius-md)",
-                    overflow: "hidden",
-                  }}
-                >
+                {/* Stock check — full width, left-aligned */}
+                {isPacking && stockCheck && (
                   <div
                     style={{
-                      padding: "8px 12px",
-                      background: "var(--surface)",
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "var(--text-secondary)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius-md)",
+                      overflow: "hidden",
                     }}
                   >
-                    {stockCheck.loading ? (
-                      <Loader2 size={12} className="spin" />
-                    ) : stockCheck.rows.every((r) => r.ok) ? (
-                      <PackageCheck size={12} style={{ color: "var(--success)" }} />
-                    ) : (
-                      <PackageX size={12} style={{ color: "var(--danger)" }} />
-                    )}
-                    Kiểm tra tồn kho thành phẩm
-                  </div>
-                  {!stockCheck.loading && stockCheck.rows.length > 0 && (
-                    <div style={{ padding: "8px 0" }}>
-                      {stockCheck.rows.map((row, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            padding: "6px 12px",
-                            fontSize: "13px",
-                            background: row.ok ? "transparent" : "var(--danger-bg)",
-                            gap: "12px",
-                          }}
-                        >
-                          <span style={{ flex: 1 }}>{row.name}</span>
-                          <span
+                    <div
+                      style={{
+                        padding: "8px 12px",
+                        background: "var(--surface)",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: "var(--text-secondary)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      {stockCheck.loading ? (
+                        <Loader2 size={12} className="spin" />
+                      ) : stockCheck.rows.every((r) => r.ok) ? (
+                        <PackageCheck
+                          size={12}
+                          style={{ color: "var(--success)" }}
+                        />
+                      ) : (
+                        <PackageX
+                          size={12}
+                          style={{ color: "var(--danger)" }}
+                        />
+                      )}
+                      Kiểm tra tồn kho thành phẩm
+                    </div>
+                    {!stockCheck.loading && stockCheck.rows.length > 0 && (
+                      <div style={{ padding: "8px 0" }}>
+                        {stockCheck.rows.map((row, i) => (
+                          <div
+                            key={i}
                             style={{
-                              color: "var(--text-secondary)",
-                              fontSize: "12px",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              padding: "6px 12px",
+                              fontSize: "13px",
+                              background: row.ok
+                                ? "transparent"
+                                : "var(--danger-bg)",
+                              gap: "12px",
                             }}
                           >
-                            Cần: <strong>{row.needed}</strong> · Tồn:{" "}
-                            <strong
+                            <span style={{ flex: 1 }}>{row.name}</span>
+                            <span
                               style={{
-                                color: row.ok ? "var(--success)" : "var(--danger)",
+                                color: "var(--text-secondary)",
+                                fontSize: "12px",
                               }}
                             >
-                              {row.available}
-                            </strong>{" "}
-                            {row.unit}
-                          </span>
-                          {row.ok ? (
-                            <PackageCheck
-                              size={14}
-                              style={{ color: "var(--success)", flexShrink: 0 }}
-                            />
-                          ) : (
-                            <PackageX
-                              size={14}
-                              style={{ color: "var(--danger)", flexShrink: 0 }}
-                            />
-                          )}
-                        </div>
-                      ))}
-                      {stockCheck.rows.some((r) => !r.ok) && (
-                        <div
-                          style={{
-                            padding: "8px 12px",
-                            fontSize: "12px",
-                            color: "var(--danger)",
-                            borderTop: "1px solid var(--border)",
-                            marginTop: "4px",
-                          }}
-                        >
-                          Không đủ tồn kho. Hãy tạo kế hoạch sản xuất mới trước.
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+                              Cần: <strong>{row.needed}</strong> · Tồn:{" "}
+                              <strong
+                                style={{
+                                  color: row.ok
+                                    ? "var(--success)"
+                                    : "var(--danger)",
+                                }}
+                              >
+                                {row.available}
+                              </strong>{" "}
+                              {row.unit}
+                            </span>
+                            {row.ok ? (
+                              <PackageCheck
+                                size={14}
+                                style={{
+                                  color: "var(--success)",
+                                  flexShrink: 0,
+                                }}
+                              />
+                            ) : (
+                              <PackageX
+                                size={14}
+                                style={{
+                                  color: "var(--danger)",
+                                  flexShrink: 0,
+                                }}
+                              />
+                            )}
+                          </div>
+                        ))}
+                        {stockCheck.rows.some((r) => !r.ok) && (
+                          <div
+                            style={{
+                              padding: "8px 12px",
+                              fontSize: "12px",
+                              color: "var(--danger)",
+                              borderTop: "1px solid var(--border)",
+                              marginTop: "4px",
+                            }}
+                          >
+                            Không đủ tồn kho. Hãy tạo kế hoạch sản xuất mới
+                            trước.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
-              {/* Notes textarea — always full width */}
-              <Textarea
-                label="Ghi chú (tùy chọn)"
-                placeholder="Ghi chú thêm về lý do chuyển trạng thái..."
-                value={statusNotes}
-                onChange={(e) => setStatusNotes(e.target.value)}
-              />
-            </div>
-          </Modal>
-        );
-      })()}
+                {/* Notes textarea — always full width */}
+                <Textarea
+                  label="Ghi chú (tùy chọn)"
+                  placeholder="Ghi chú thêm về lý do chuyển trạng thái..."
+                  value={statusNotes}
+                  onChange={(e) => setStatusNotes(e.target.value)}
+                />
+              </div>
+            </Modal>
+          );
+        })()}
     </PageWrapper>
   );
 }

@@ -45,7 +45,9 @@ export default function IssueManagement() {
         ]);
         const items = all.content || all || [];
         // Sort: DELAYED first, then SHIPPING, then others
-        const active = items.filter((i) => i.status !== "CANCELLED");
+        const active = items.filter(
+          (i) => i.status !== "CANCELLED" && i.status !== "DELIVERED",
+        );
         active.sort((a, b) => {
           const order = { DELAYED: 0, SHIPPING: 1 };
           return (order[a.status] ?? 2) - (order[b.status] ?? 2);
@@ -262,7 +264,12 @@ export default function IssueManagement() {
               <Card
                 key={delivery.deliveryId || delivery.id}
                 hoverable
-                style={{ cursor: "pointer", border: "1px solid var(--danger)", background: "color-mix(in srgb, var(--danger) 6%, var(--bg-card))" }}
+                style={{
+                  cursor: "pointer",
+                  border: "1px solid var(--danger)",
+                  background:
+                    "color-mix(in srgb, var(--danger) 6%, var(--bg-card))",
+                }}
                 onClick={() => setViewDelivery(delivery)}
               >
                 <div
@@ -423,37 +430,63 @@ export default function IssueManagement() {
         }
       >
         {viewDelivery && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "14px" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+              fontSize: "14px",
+            }}
+          >
             <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--text-secondary)" }}>Mã giao hàng</span>
+              <span style={{ color: "var(--text-secondary)" }}>
+                Mã giao hàng
+              </span>
               <span className="font-mono" style={{ fontWeight: 600 }}>
                 {viewDelivery.deliveryId || viewDelivery.id || "—"}
               </span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--text-secondary)" }}>Mã đơn hàng</span>
+              <span style={{ color: "var(--text-secondary)" }}>
+                Mã đơn hàng
+              </span>
               <span className="font-mono" style={{ fontWeight: 600 }}>
-                {viewDelivery.orderId || viewDelivery.order?.orderId || viewDelivery.order?.id || "—"}
+                {viewDelivery.orderId ||
+                  viewDelivery.order?.orderId ||
+                  viewDelivery.order?.id ||
+                  "—"}
               </span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ color: "var(--text-secondary)" }}>Cửa hàng</span>
-              <span>{viewDelivery.storeName || viewDelivery.order?.storeName || "—"}</span>
+              <span>
+                {viewDelivery.storeName || viewDelivery.order?.storeName || "—"}
+              </span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ color: "var(--text-secondary)" }}>Trạng thái</span>
-              <Badge variant="neutral" dot>Đã hủy</Badge>
+              <Badge variant="neutral" dot>
+                Đã hủy
+              </Badge>
             </div>
             {viewDelivery.assignedAt && (
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--text-secondary)" }}>Ngày lên lịch</span>
-                <span>{new Date(viewDelivery.assignedAt).toLocaleString("vi-VN")}</span>
+                <span style={{ color: "var(--text-secondary)" }}>
+                  Ngày lên lịch
+                </span>
+                <span>
+                  {new Date(viewDelivery.assignedAt).toLocaleString("vi-VN")}
+                </span>
               </div>
             )}
             {viewDelivery.notes && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: "4px" }}
+              >
                 <span style={{ color: "var(--text-secondary)" }}>Ghi chú</span>
-                <p style={{ fontStyle: "italic", margin: 0 }}>{viewDelivery.notes}</p>
+                <p style={{ fontStyle: "italic", margin: 0 }}>
+                  {viewDelivery.notes}
+                </p>
               </div>
             )}
           </div>
