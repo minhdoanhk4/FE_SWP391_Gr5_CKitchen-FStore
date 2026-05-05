@@ -14,6 +14,15 @@ const ISSUE_TYPE_LABELS = {
   OTHER: "Khác",
 };
 
+const DELIVERY_STATUS_LABELS = {
+  ASSIGNED: "Đã lên lịch",
+  SHIPPING: "Đang giao",
+  WAITING_CONFIRM: "Chờ xác nhận",
+  DELAYED: "Bị trễ",
+  DELIVERED: "Đã giao",
+  CANCELLED: "Đã hủy",
+};
+
 const ISSUE_TYPE_OPTIONS = Object.entries(ISSUE_TYPE_LABELS).map(([v, l]) => ({
   value: v,
   label: l,
@@ -222,7 +231,7 @@ export default function IssueManagement() {
                     }
                     dot
                   >
-                    {delivery.status}
+                    {DELIVERY_STATUS_LABELS[delivery.status] ?? delivery.status}
                   </Badge>
                 </div>
                 <p
@@ -361,7 +370,7 @@ export default function IssueManagement() {
                 const store = d.storeName || d.order?.storeName || "";
                 return {
                   value: oid,
-                  label: `${oid}${store ? " — " + store : ""} [Giao hàng: ${d.status}]`,
+                  label: `${oid}${store ? " — " + store : ""} [${DELIVERY_STATUS_LABELS[d.status] ?? d.status}]`,
                 };
               }),
             ]}

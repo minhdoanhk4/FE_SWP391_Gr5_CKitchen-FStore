@@ -50,9 +50,9 @@ const TIMELINE_FIELD_MAP = {
 
 const STATUS_LABELS = {
   PENDING: "Chờ xử lý",
-  ASSIGNED: "Đã nhận",
+  ASSIGNED: "Đã xác nhận",
   IN_PROGRESS: "Đang sản xuất",
-  PACKED_WAITING_SHIPPER: "Chờ giao",
+  PACKED_WAITING_SHIPPER: "Sẵn sàng giao",
   SHIPPING: "Đang giao",
   DELIVERED: "Đã giao",
   CANCELLED: "Đã hủy",
@@ -61,8 +61,8 @@ const STATUS_LABELS = {
 const STATUS_COLORS = {
   PENDING: "warning",
   ASSIGNED: "info",
-  IN_PROGRESS: "primary",
-  PACKED_WAITING_SHIPPER: "accent",
+  IN_PROGRESS: "accent",
+  PACKED_WAITING_SHIPPER: "primary",
   SHIPPING: "info",
   DELIVERED: "success",
   CANCELLED: "danger",
@@ -259,9 +259,14 @@ export default function OrderDetail() {
               <div key={i} className="order-detail__item-row">
                 <div>
                   <p className="order-detail__item-name">{item.productName}</p>
-                  <p className="order-detail__item-id font-mono">{item.productId}</p>
+                  <p className="order-detail__item-id font-mono">
+                    {item.productId}
+                  </p>
                 </div>
-                <span className="order-detail__item-qty font-mono" style={{ textAlign: "right" }}>
+                <span
+                  className="order-detail__item-qty font-mono"
+                  style={{ textAlign: "right" }}
+                >
                   {item.quantity} {item.unit}
                 </span>
               </div>

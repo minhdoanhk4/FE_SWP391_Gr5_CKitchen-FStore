@@ -61,17 +61,11 @@ const statusTabs = [
   { value: "CANCELLED", label: "Đã hủy" },
 ];
 
+// Supply coordinator can only flag a delivery as delayed.
+// All other transitions (start shipping, resume, cancel, confirm delivery) belong to the shipper app.
 const NEXT_STATUS_OPTIONS = {
-  ASSIGNED: [
-    { value: "SHIPPING", label: "Bắt đầu giao" },
-    { value: "CANCELLED", label: "Hủy" },
-  ],
   SHIPPING: [
-    { value: "DELAYED", label: "Bị trễ" },
-  ],
-  DELAYED: [
-    { value: "SHIPPING", label: "Tiếp tục giao" },
-    { value: "CANCELLED", label: "Hủy" },
+    { value: "DELAYED", label: "Đánh dấu trễ" },
   ],
 };
 

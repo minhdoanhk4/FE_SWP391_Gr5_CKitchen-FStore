@@ -115,7 +115,7 @@ export default function StoreOrders() {
     { value: "all", label: "Tất cả" },
     { value: "PENDING", label: "Chờ xử lý" },
     { value: "ASSIGNED", label: "Đã xác nhận" },
-    { value: "IN_PROGRESS", label: "Đang SX" },
+    { value: "IN_PROGRESS", label: "Đang sản xuất" },
     { value: "PACKED_WAITING_SHIPPER", label: "Sẵn sàng giao" },
     { value: "SHIPPING", label: "Đang giao" },
     { value: "DELIVERED", label: "Đã giao" },
