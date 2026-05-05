@@ -37,7 +37,7 @@ import "../Dashboard.css";
 const ORDER_STATUS_LABELS = {
   PENDING: "Chờ xử lý",
   ASSIGNED: "Đã gán bếp",
-  IN_PROGRESS: "Đang SX",
+  IN_PROGRESS: "Đang sản xuất",
   PACKED_WAITING_SHIPPER: "Chờ shipper",
   SHIPPING: "Đang giao",
   DELIVERED: "Đã giao",
@@ -421,7 +421,6 @@ export default function AdminDashboard() {
               >
                 QL Bếp
               </Button>
-
             </div>
           </Card>
 

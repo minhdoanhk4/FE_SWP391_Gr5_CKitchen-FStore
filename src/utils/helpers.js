@@ -49,7 +49,7 @@ export const STATUS_LABELS = {
   assigned: "Đã xác nhận",
   in_progress: "Đang sản xuất",
   packed_waiting_shipper: "Sẵn sàng giao",
-  shipping: "Đang giao hàng",
+  shipping: "Đang giao",
   waiting_confirm: "Chờ xác nhận",
   delivered: "Đã giao",
   cancelled: "Đã hủy",

@@ -6,6 +6,14 @@ import { DataTable, Badge, Button, Drawer } from "../../components/ui";
 import { useData } from "../../contexts/DataContext";
 import storeService from "../../services/storeService";
 
+const BATCH_STATUS_LABELS = {
+  AVAILABLE: "Còn hàng",
+  PART_DIST: "Phân phối một phần",
+  DISTRIBUTED: "Đã phân phối",
+  DEPLETED: "Hết hàng",
+  EXPIRED: "Hết hạn",
+};
+
 export default function StoreInventory() {
   const { formatDate, formatCurrency, isExpiringSoon, isExpired } = useData();
 
@@ -22,7 +30,9 @@ export default function StoreInventory() {
     setBatches([]);
     setBatchLoading(true);
     try {
-      const resp = await storeService.getInventoryBatches(row.productId, { size: 50 });
+      const resp = await storeService.getInventoryBatches(row.productId, {
+        size: 50,
+      });
       setBatches(resp?.content ?? resp ?? []);
     } catch {
       toast.error("Không thể tải chi tiết lô");
@@ -208,57 +218,120 @@ export default function StoreInventory() {
         title={`Chi tiết lô: ${batchDrawer?.productName || ""}`}
       >
         {batchLoading ? (
-          <p style={{ padding: "20px", color: "var(--text-muted)" }}>Đang tải...</p>
+          <p style={{ padding: "20px", color: "var(--text-muted)" }}>
+            Đang tải...
+          </p>
         ) : batches.length === 0 ? (
-          <p style={{ padding: "20px", color: "var(--text-muted)" }}>Không có lô nào.</p>
+          <p style={{ padding: "20px", color: "var(--text-muted)" }}>
+            Không có lô nào.
+          </p>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "4px" }}>
-            {batches.map((b, i) => (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+              padding: "4px",
+            }}
+          >
+            {batches.map((b, i) => {
+              const expired = isExpired(b.expiryDate);
+              const expiring = !expired && isExpiringSoon(b.expiryDate);
+              return (
               <div
                 key={b.id ?? i}
                 style={{
                   border: "1px solid var(--surface-border)",
+                  borderLeft: expired
+                    ? "3px solid var(--danger)"
+                    : expiring
+                      ? "3px solid var(--warning)"
+                      : "1px solid var(--surface-border)",
                   borderRadius: "var(--radius-md)",
                   padding: "14px 16px",
-                  background: "var(--surface-card)",
+                  background: expired
+                    ? "color-mix(in srgb, var(--danger) 5%, var(--surface-card))"
+                    : expiring
+                      ? "color-mix(in srgb, var(--warning) 5%, var(--surface-card))"
+                      : "var(--surface-card)",
                   display: "flex",
                   flexDirection: "column",
                   gap: "6px",
                   fontSize: "13px",
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <div
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
                   <span style={{ color: "var(--text-secondary)" }}>Mã lô</span>
-                  <strong className="font-mono">{b.batchId ?? b.id ?? `#${i + 1}`}</strong>
+                  <strong className="font-mono">
+                    {b.batchId ?? b.id ?? `#${i + 1}`}
+                  </strong>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "var(--text-secondary)" }}>Số lượng</span>
-                  <strong>{b.quantity ?? b.remainingQuantity ?? 0} {b.unit || ""}</strong>
+                <div
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
+                  <span style={{ color: "var(--text-secondary)" }}>
+                    Số lượng
+                  </span>
+                  <strong>
+                    {b.quantity ?? b.remainingQuantity ?? 0} {b.unit || ""}
+                  </strong>
                 </div>
                 {b.expiryDate && (
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "var(--text-secondary)" }}>Hạn sử dụng</span>
-                    <span style={{ color: isExpired(b.expiryDate) ? "var(--danger)" : isExpiringSoon(b.expiryDate) ? "var(--warning)" : "var(--text-primary)", fontWeight: 600 }}>
+                  <div
+                    style={{ display: "flex", justifyContent: "space-between" }}
+                  >
+                    <span style={{ color: "var(--text-secondary)" }}>
+                      Hạn sử dụng
+                    </span>
+                    <span
+                      style={{
+                        color: isExpired(b.expiryDate)
+                          ? "var(--danger)"
+                          : isExpiringSoon(b.expiryDate)
+                            ? "var(--warning)"
+                            : "var(--text-primary)",
+                        fontWeight: 600,
+                      }}
+                    >
                       {formatDate(b.expiryDate)}
                     </span>
                   </div>
                 )}
                 {b.receivedDate && (
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "var(--text-secondary)" }}>Ngày nhập</span>
+                  <div
+                    style={{ display: "flex", justifyContent: "space-between" }}
+                  >
+                    <span style={{ color: "var(--text-secondary)" }}>
+                      Ngày nhập
+                    </span>
                     <span>{formatDate(b.receivedDate)}</span>
                   </div>
                 )}
                 {b.status && (
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "var(--text-secondary)" }}>Trạng thái</span>
-                    <Badge variant={isExpired(b.expiryDate) ? "danger" : b.quantity === 0 ? "neutral" : "success"}>
-                      {b.status}
+                  <div
+                    style={{ display: "flex", justifyContent: "space-between" }}
+                  >
+                    <span style={{ color: "var(--text-secondary)" }}>
+                      Trạng thái
+                    </span>
+                    <Badge
+                      variant={
+                        isExpired(b.expiryDate)
+                          ? "danger"
+                          : b.quantity === 0
+                            ? "neutral"
+                            : "success"
+                      }
+                    >
+                      {BATCH_STATUS_LABELS[b.status] ?? b.status}
                     </Badge>
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Drawer>
